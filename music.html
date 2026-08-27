@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="music.css?v=6">
+  <link rel="stylesheet" href="music.css?v=7">
 </head>
 <body>
   <header class="topbar">
@@ -25,7 +25,8 @@
       <span id="queue-badge" class="badge" style="display:none">0 queued</span>
       <span id="storage-hint" class="hint">1GB • ~200 TRACKS</span>
       <button id="toggle-ingest" class="btn btn-ghost btn-icon" aria-expanded="false" aria-controls="ingest-panel" title="Queue new track">＋ Queue</button>
-      <button id="install-btn" class="btn btn-ghost" style="display:none">Install App</button>
+      <span id="auth-area" class="auth-area"></span>
+      <button id="install-btn" class="btn btn-ghost" style="display:none">Install</button>
     </div>
   </header>
 
@@ -118,6 +119,20 @@
   </div>
 
   <div id="toast"></div>
+  <div id="auth-dialog" class="modal" style="display:none" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="auth-title">Log in</h3>
+      <p class="sub" style="margin-bottom:12px">Global library is public — log in to make playlists & upload your own songs.</p>
+      <input id="auth-email" type="email" placeholder="Email" autocomplete="email" style="margin-bottom:8px">
+      <input id="auth-pass" type="password" placeholder="Password (min 6)" autocomplete="current-password" style="margin-bottom:10px">
+      <div id="auth-error" class="status err" style="min-height:16px"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="auth-login" class="btn btn-main" style="flex:1">Log in</button>
+        <button id="auth-signup" class="btn btn-ghost" style="flex:1">Sign up</button>
+      </div>
+      <button id="auth-close" class="btn btn-ghost" style="width:100%;margin-top:8px">Cancel</button>
+    </div>
+  </div>
 
   <!-- PWA Install Banner -->
   <div id="pwa-banner" class="pwa-banner" style="display:none" role="dialog" aria-label="Install app">
@@ -139,6 +154,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="music.js?v=6" defer></script>
+  <script src="music.js?v=7" defer></script>
 </body>
 </html>

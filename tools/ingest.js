@@ -156,8 +156,8 @@ async function processQueue() {
         }
       } catch {}
 
-      // 4. Insert track row
-      const { error: insErr } = await sb.from('tracks').insert({
+      // 4. Insert track row - global public, owner_id for attribution (hybrid)
+      const trackPayload = {
         original_url: job.original_url,
         extractor,
         extractor_id: extractorId,
@@ -167,7 +167,9 @@ async function processQueue() {
         storage_path: storagePath,
         duration_sec: duration,
         file_size: size,
-      });
+      };
+      if(job.owner_id) trackPayload.owner_id = job.owner_id;
+      const { error: insErr } = await sb.from('tracks').insert(trackPayload);
       if (insErr) {
         if (insErr.message.includes('duplicate') || insErr.code === '23505') log(`  ↳ already in tracks, ok`);
         else throw new Error(`DB insert: ${insErr.message}`);

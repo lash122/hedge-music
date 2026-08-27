@@ -23,12 +23,69 @@ let curTrackId = null;
 let isPlaying = false;
 let repeat = false;
 
+// --- Auth (hybrid: global library public, playlists/queue private) ---
+let currentUser=null;
+function renderAuth(){
+  const area=$('auth-area');
+  if(!area) return;
+  if(currentUser){
+    area.innerHTML=`<span class="user">${esc(currentUser.email)}</span><button id="auth-logout" class="btn btn-ghost" style="padding:5px 10px">Log out</button>`;
+    $('auth-logout')?.addEventListener('click', async()=>{ await sb.auth.signOut(); });
+  } else {
+    area.innerHTML=`<button id="auth-open" class="btn btn-ghost" style="padding:5px 10px">Log in</button>`;
+    $('auth-open')?.addEventListener('click', ()=> showAuth('login'));
+  }
+}
+function showAuth(mode){
+  $('auth-title').textContent = mode==='signup' ? 'Sign up' : 'Log in';
+  $('auth-error').textContent='';
+  $('auth-dialog').style.display='grid';
+  setTimeout(()=>$('auth-email').focus(), 80);
+}
+function hideAuth(){ $('auth-dialog').style.display='none'; $('auth-error').textContent=''; }
+$('auth-close')?.addEventListener('click', hideAuth);
+$('auth-dialog')?.addEventListener('click', e=>{ if(e.target.id==='auth-dialog') hideAuth(); });
+$('auth-login')?.addEventListener('click', async()=>{
+  const email=$('auth-email').value.trim(), pass=$('auth-pass').value;
+  if(!email||!pass) return $('auth-error').textContent='Enter email & password';
+  $('auth-error').textContent='…';
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error) $('auth-error').textContent=error.message; else { hideAuth(); toast('Logged in'); }
+});
+$('auth-signup')?.addEventListener('click', async()=>{
+  const email=$('auth-email').value.trim(), pass=$('auth-pass').value;
+  if(!email||!pass) return $('auth-error').textContent='Enter email & password';
+  if(pass.length<6) return $('auth-error').textContent='Password min 6 chars';
+  $('auth-error').textContent='…';
+  const {error}=await sb.auth.signUp({email,password:pass});
+  if(error) $('auth-error').textContent=error.message; else { hideAuth(); toast('Account created — check email if confirmation required'); }
+});
+async function initAuth(){
+  const {data:{session}}=await sb.auth.getSession();
+  currentUser=session?.user||null;
+  renderAuth();
+  if(currentUser){ await Promise.all([loadQueue(), loadPlaylists()]); }
+  else { queue=[]; playlists=[]; playlistTracks=[]; $('queue-count').textContent='— log in to queue'; $('playlists-list').innerHTML='<small style="color:var(--text-tertiary)">Log in to make playlists</small>'; }
+}
+sb.auth.onAuthStateChange(async (_event, session)=>{
+  currentUser=session?.user||null;
+  renderAuth();
+  if(currentUser){ await Promise.all([loadQueue(), loadPlaylists()]); } else { queue=[]; playlists=[]; playlistTracks=[]; renderPlaylists(); }
+});
+initAuth();
+
 // --- Helpers ---
 function publicUrl(storagePath){
   if(!storagePath) return '';
   return `${SUPABASE_URL}/storage/v1/object/public/tracks/${encodeURIComponent(storagePath)}`;
 }
 function fmtTime(s){ if(!isFinite(s) || s==null) return '--:--'; const m=Math.floor(s/60), sec=Math.floor(s%60); return m+':'+String(sec).padStart(2,'0'); }
+function requireAuth(){
+  if(currentUser) return true;
+  showAuth('login');
+  toast('Log in to queue & make playlists — library is public to browse');
+  return false;
+}
 
 // --- Collapsible ingest ---
 function setIngest(open){
@@ -126,15 +183,17 @@ async function queueNow(){
   if(!url){ toast('Paste a URL'); return; }
   try { new URL(url); } catch{ toast('Invalid URL'); return; }
   if(!/^https?:\/\//i.test(url)){ toast('URL must start https://'); return; }
-  // reveal panel so status is visible even when collapsed
+  if(!requireAuth()) return;
   setIngest(true);
   $('queue-btn').disabled=true;
   $('queue-status').textContent='Queuing...'; $('queue-status').className='status';
   try{
-    const { error } = await sb.from('ingest_queue').insert({ original_url: url });
+    const payload={ original_url: url };
+    if(currentUser) payload.owner_id=currentUser.id;
+    const { error } = await sb.from('ingest_queue').insert(payload);
     if(error) throw error;
     $('yt-url').value='';
-    $('queue-status').textContent='✓ Queued as pending. Run your laptop: node tools/ingest.js --watch (batch will process all pending collectively)';
+    $('queue-status').textContent='✓ Queued as pending (visible to you). Run laptop: node tools/ingest.js --watch';
     $('queue-status').className='status ok';
     toast('Queued! Run laptop ingest to process');
     await loadQueue();
@@ -143,12 +202,14 @@ async function queueNow(){
     if(e.message.includes('does not exist') || e.message.includes('relation')){
       $('queue-status').textContent += ' — Run supabase-music.sql in Supabase SQL Editor first.';
     }
+    if(e.message.includes('row-level security') || e.message.includes('policy')) $('queue-status').textContent += ' — Log in first';
   } finally { $('queue-btn').disabled=false; }
 }
 
 async function loadQueue(){
+  if(!currentUser){ $('queue-count').textContent='— log in to queue'; $('queue-badge').style.display='none'; $('pending-list').innerHTML='<small style="color:var(--text-tertiary)">Log in to queue and see your pending uploads</small>'; return; }
   const { data, error } = await sb.from('ingest_queue').select('*').order('created_at', {ascending:false}).limit(50);
-  if(error){ console.warn('queue load', error.message); return; }
+  if(error){ console.warn('queue load', error.message); if(error.message.includes('policy')) $('pending-list').innerHTML='<small style="color:var(--text-tertiary)">No access — log in</small>'; return; }
   queue = data||[];
   const pending = queue.filter(q=>q.status==='pending');
   $('queue-count').textContent = pending.length+' pending';
@@ -161,7 +222,7 @@ async function loadQueue(){
   if(queue.length>8) $('pending-list').innerHTML += `<small style="color:var(--muted)">+ ${queue.length-8} more</small>`;
 }
 
-// --- Tracks ---
+// --- Tracks - global public, searchable by all ---
 async function loadTracks(){
   const { data, error } = await sb.from('tracks').select('*').order('created_at', {ascending:false}).limit(500);
   if(error){
@@ -233,19 +294,21 @@ function renderTracks(){
   });
 }
 
-// --- Playlists ---
+// --- Playlists - private per user ---
 async function loadPlaylists(){
+  if(!currentUser){ playlists=[]; playlistTracks=[]; renderPlaylists(); renderTracks(); return; }
   const { data, error } = await sb.from('playlists').select('*').order('created_at');
   if(error){ console.warn('playlists', error.message); return; }
   playlists=data||[];
-  // load all playlist_tracks for current active or all for filtering
-  const { data: pts } = await sb.from('playlist_tracks').select('*').order('position');
+  const { data: pts, error:e2 } = await sb.from('playlist_tracks').select('*').order('position');
+  if(e2) console.warn(e2.message);
   playlistTracks = pts||[];
   renderPlaylists();
   renderTracks();
 }
 function renderPlaylists(){
   const el=$('playlists-list');
+  if(!currentUser){ el.innerHTML='<small style="color:var(--text-tertiary)">Log in to make your own playlists — library is public to browse</small>'; return; }
   if(!playlists.length){ el.innerHTML='<small style="color:var(--muted)">No playlists yet</small>'; return; }
   el.innerHTML = playlists.map(p=>{
     const count = playlistTracks.filter(pt=>pt.playlist_id===p.id).length;
@@ -270,9 +333,11 @@ function renderPlaylists(){
   }));
 }
 $('create-playlist-btn').addEventListener('click', async()=>{
+  if(!requireAuth()) return;
   const name=$('new-playlist-name').value.trim();
   if(!name) return toast('Enter name');
-  const { error } = await sb.from('playlists').insert({name});
+  const payload={name}; if(currentUser) payload.owner_id=currentUser.id;
+  const { error } = await sb.from('playlists').insert(payload);
   if(error) toast(error.message); else { $('new-playlist-name').value=''; await loadPlaylists(); toast('Playlist created');}
 });
 async function addToPlaylist(pid, tid){

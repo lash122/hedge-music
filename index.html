@@ -3,28 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hedge Music ✦</title>
+  <title>Hedge Music</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0f0f14">
-  <meta name="description" content="Personal music PWA - yt-dlp -> Supabase, laptop as on-demand server">
+  <meta name="theme-color" content="#0c0c0e">
+  <meta name="description" content="Personal music library — Supabase + laptop ingest">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="music.css?v=4">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="music.css?v=5">
 </head>
 <body>
-  <div class="bg-orb orb1"></div>
-  <div class="bg-orb orb2"></div>
-  <div class="bg-orb orb3"></div>
-
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">◈</span>
-      <span class="brand-text">HEDGE<span>MUSIC</span></span>
-      <span class="brand-dot"></span>
-      <small>PRIVATE COLLECTION</small>
+      <span class="brand-text">HEDGE MUSIC</span>
+      <small>PRIVATE</small>
     </div>
     <div class="top-actions">
       <span id="queue-badge" class="badge" style="display:none">0 queued</span>
@@ -37,17 +31,15 @@
   <section id="ingest-panel" class="ingest collapsed" aria-hidden="true">
     <div class="ingest-inner">
       <div class="ingest-head">
-        <h2>Queue new track</h2>
-        <span class="pill">yt-dlp • 1800+ sites</span>
-        <button id="close-ingest" class="btn btn-ghost" style="padding:6px 12px;font-size:.78rem">✕ Close</button>
+        <h2>Queue</h2>
+        <button id="close-ingest" class="btn btn-ghost">Close</button>
       </div>
-      <p class="sub">Paste any link — YouTube, SoundCloud, Bandcamp, Vimeo, TikTok. Queued as <code>pending</code> and ingested collectively when your laptop runs <code>node tools/ingest.js --watch</code>.</p>
+      <p class="sub">Paste any link. Queued as pending, ingested when laptop runs <code>node tools/ingest.js --watch</code>.</p>
       <div class="ingest-row">
         <div class="input-wrap">
-          <span class="input-icon">⧉</span>
-          <input id="yt-url" type="url" placeholder="Paste link — youtube.com/watch?v=... / soundcloud.com/..." autocomplete="off" spellcheck="false">
+          <input id="yt-url" type="url" placeholder="Paste link — youtube, soundcloud, bandcamp..." autocomplete="off" spellcheck="false">
         </div>
-        <button id="queue-btn" class="btn btn-main"><span>Queue</span> <i>→</i></button>
+        <button id="queue-btn" class="btn btn-main"><span>Queue</span></button>
       </div>
       <div id="queue-status" class="status"></div>
       <div id="pending-list" class="pending-list"></div>
@@ -146,6 +138,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="music.js?v=4" defer></script>
+  <script src="music.js?v=5" defer></script>
 </body>
 </html>

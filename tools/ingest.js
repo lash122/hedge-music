@@ -142,12 +142,19 @@ async function processQueue() {
       const size = buf.length;
       log(`  ↳ ${ (size/1024/1024).toFixed(2)} MB, uploading to tracks bucket...`);
 
-      // 3. Upload to Supabase Storage
-      const storagePath = `${extractorId}.mp3`;
-      // check if already exists (resume)
+      // 3. Upload to Supabase Storage - extractor-prefixed to avoid collisions
+      const storagePath = `${extractor}-${extractorId}.mp3`;
       const { error: upErr } = await sb.storage.from('tracks').upload(storagePath, buf, { contentType: 'audio/mpeg', upsert: true });
       if (upErr) throw new Error(`Storage upload: ${upErr.message}`);
+      // cleanup local tmp in both success and error paths
       try { unlinkSync(mp3Path); } catch {}
+      // also clean any leftover tmp older than 1h
+      try {
+        for(const f of readdirSync(localTmp).filter(x=>x.startsWith('hedge3-'))){
+          const p=join(localTmp,f);
+          if(Date.now()-statSync(p).mtimeMs > 3600000) try{unlinkSync(p)}catch{}
+        }
+      } catch {}
 
       // 4. Insert track row
       const { error: insErr } = await sb.from('tracks').insert({
@@ -170,6 +177,12 @@ async function processQueue() {
       log(`  ✓ done -> ${title} - ${artist} [${extractor}]`);
 
     } catch (e) {
+      // cleanup local file on error too
+      try {
+        const localTmp = join(__dirname, 'tmp');
+        const cand = join(localTmp, `hedge3-${String(job.original_url).slice(-8).replace(/[^a-zA-Z0-9]/g,'_')}.mp3`);
+        if(existsSync(cand)) try{unlinkSync(cand)}catch{}
+      } catch {}
       err(`  ✗ failed: ${e.message}`);
       await sb.from('ingest_queue').update({ status: 'error', error: String(e.message).slice(0, 500) }).eq('id', job.id);
     }

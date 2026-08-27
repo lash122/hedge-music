@@ -24,8 +24,11 @@ let isPlaying = false;
 let repeat = false;
 
 // --- Helpers ---
-function publicUrl(storagePath){ return `${SUPABASE_URL}/storage/v1/object/public/tracks/${encodeURIComponent(storagePath)}`; }
-function fmtTime(s){ if(!isFinite(s)) return '0:00'; const m=Math.floor(s/60), sec=Math.floor(s%60); return m+':'+String(sec).padStart(2,'0'); }
+function publicUrl(storagePath){
+  if(!storagePath) return '';
+  return `${SUPABASE_URL}/storage/v1/object/public/tracks/${encodeURIComponent(storagePath)}`;
+}
+function fmtTime(s){ if(!isFinite(s) || s==null) return '--:--'; const m=Math.floor(s/60), sec=Math.floor(s%60); return m+':'+String(sec).padStart(2,'0'); }
 
 // --- Collapsible ingest ---
 function setIngest(open){
@@ -122,8 +125,9 @@ async function queueNow(){
   const url = $('yt-url').value.trim();
   if(!url){ toast('Paste a URL'); return; }
   try { new URL(url); } catch{ toast('Invalid URL'); return; }
-  // Basic allow any url that yt-dlp can handle (not just youtube)
   if(!/^https?:\/\//i.test(url)){ toast('URL must start https://'); return; }
+  // reveal panel so status is visible even when collapsed
+  setIngest(true);
   $('queue-btn').disabled=true;
   $('queue-status').textContent='Queuing...'; $('queue-status').className='status';
   try{
@@ -136,7 +140,6 @@ async function queueNow(){
     await loadQueue();
   }catch(e){
     $('queue-status').textContent='✗ '+e.message; $('queue-status').className='status err';
-    // Hint if table not exists
     if(e.message.includes('does not exist') || e.message.includes('relation')){
       $('queue-status').textContent += ' — Run supabase-music.sql in Supabase SQL Editor first.';
     }
@@ -194,12 +197,15 @@ function renderTracks(){
   if(!list.length){ el.innerHTML='<div class="empty">No tracks match. Try clearing search/filter or queue some URLs.</div>'; return; }
   el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
-    const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:48px;height:48px;background:#0a0a12;border-radius:6px;display:grid;place-items:center">♪</div>`;
+    const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:40px;height:40px;background:var(--bg);border:1px solid var(--border);border-radius:4px;display:grid;place-items:center;font-size:12px">♪</div>`;
+    const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
+    const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
+    const meta = [esc(tr.artist||tr.extractor||''), esc(tr.extractor||''), dur, size].filter(Boolean).join(' · ');
     return `<div class="track ${isCur?'playing':''}" data-id="${esc(tr.id)}">
       ${art}
       <div style="min-width:0">
         <div class="t-title">${esc(tr.title)}</div>
-        <div class="t-sub">${esc(tr.artist||tr.extractor||'') } · ${esc(tr.extractor||'')} · ${tr.duration_sec? fmtTime(tr.duration_sec):''} · ${(tr.file_size/1024/1024).toFixed(1)}MB</div>
+        <div class="t-sub">${meta}</div>
       </div>
       <div class="t-actions">
         <button class="mini play-mini">${isCur && isPlaying?'⏸':'▶'}</button>
@@ -290,20 +296,24 @@ function buildQueueFromCurrent(startId){
 function playTrack(id){
   const tr = tracks.find(t=>t.id===id);
   if(!tr) return;
+  if(!tr.storage_path){ toast('File missing — re-ingest'); return; }
   curTrackId=id;
   buildQueueFromCurrent(id);
   const url = publicUrl(tr.storage_path);
+  if(!url){ toast('File missing'); return; }
   audio.src = url;
-  audio.play().catch(()=>{});
+  audio.play().catch(e=>{ toast('Playback failed'); console.warn(e); isPlaying=false; });
   isPlaying=true;
   updatePlayerUI(tr);
   renderTracks();
   if('mediaSession' in navigator){
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: tr.title, artist: tr.artist||tr.extractor||'', artwork: tr.thumbnail_url?[{src: tr.thumbnail_url}]:[]
-    });
-    navigator.mediaSession.setActionHandler('nexttrack', next);
-    navigator.mediaSession.setActionHandler('previoustrack', prev);
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: tr.title, artist: tr.artist||tr.extractor||'', artwork: tr.thumbnail_url?[{src: tr.thumbnail_url}]:[]
+      });
+      navigator.mediaSession.setActionHandler('nexttrack', next);
+      navigator.mediaSession.setActionHandler('previoustrack', prev);
+    } catch {}
   }
 }
 function updatePlayerUI(tr){
@@ -325,13 +335,14 @@ function prev(){
   queuePos = (queuePos-1+q.length)%q.length;
   playTrack(q[queuePos].id);
 }
-$('play-btn').addEventListener('click', ()=>{ if(!curTrackId){ const f=filteredTracks(); if(f[0]) playTrack(f[0].id); return; } if(audio.paused){ audio.play(); isPlaying=true; } else { audio.pause(); isPlaying=false; } $('play-btn').textContent=isPlaying?'⏸':'▶'; });
+$('play-btn').addEventListener('click', ()=>{ if(!curTrackId){ const f=filteredTracks(); if(f[0]) playTrack(f[0].id); return; } if(audio.paused){ audio.play().catch(()=>toast('Playback failed')); isPlaying=true; } else { audio.pause(); isPlaying=false; } $('play-btn').textContent=isPlaying?'⏸':'▶'; });
 $('next-btn').addEventListener('click', next);
 $('prev-btn').addEventListener('click', prev);
 $('repeat-btn').addEventListener('click', ()=>{ repeat=!repeat; $('repeat-btn').classList.toggle('active', repeat); toast(repeat?'Repeat on':'Repeat off'); });
-audio.addEventListener('ended', ()=>{ if(repeat) audio.play(); else next(); });
+audio.addEventListener('ended', ()=>{ if(repeat) audio.play().catch(()=>{}); else next(); });
 audio.addEventListener('play', ()=>{ isPlaying=true; $('play-btn').textContent='⏸'; });
 audio.addEventListener('pause', ()=>{ isPlaying=false; $('play-btn').textContent='▶'; });
+audio.addEventListener('error', ()=>{ toast('Audio load error — file may be missing'); isPlaying=false; $('play-btn').textContent='▶'; });
 audio.addEventListener('timeupdate', ()=>{
   if(!isFinite(audio.duration)) return;
   $('cur-time').textContent = fmtTime(audio.currentTime);
@@ -357,8 +368,12 @@ $('cache-btn').addEventListener('click', async()=>{
     toast('Cached offline ✓');
   }catch(e){ toast('Cache failed: '+e.message); }
 });
-// search/filter
-$('search').addEventListener('input', ()=>{ searchQ=$('search').value; renderTracks(); });
+// search/filter - debounced
+let searchDebounce=null;
+$('search').addEventListener('input', ()=>{
+  clearTimeout(searchDebounce);
+  searchDebounce=setTimeout(()=>{ searchQ=$('search').value.trim(); renderTracks(); }, 160);
+});
 document.querySelectorAll('.chip').forEach(c=> c.addEventListener('click', ()=>{ document.querySelectorAll('.chip').forEach(x=>x.classList.remove('active')); c.classList.add('active'); filter=c.dataset.filter; renderTracks(); }));
 $('refresh-btn').addEventListener('click', async()=>{ await Promise.all([loadTracks(), loadQueue(), loadPlaylists()]); toast('Refreshed'); });
 

@@ -1,6 +1,7 @@
-const CACHE = 'hedge-music-v1';
+const CACHE = 'hedge-music-v2';
 const APP_SHELL = [
   './',
+  './index.html',
   './music.html',
   './music.css',
   './music.js',

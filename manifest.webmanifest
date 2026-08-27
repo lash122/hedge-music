@@ -1,8 +1,8 @@
 {
-  "name": "Hedge Music - yt-dlp Supabase",
+  "name": "Hedge Music",
   "short_name": "HedgeMusic",
-  "description": "Personal music PWA - queue any yt-dlp link, laptop ingests to Supabase",
-  "start_url": "./music.html",
+  "description": "Personal music library",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

@@ -1,0 +1,18 @@
+{
+  "name": "hedge3-music-ingest",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Laptop ingest server: yt-dlp -x --audio-format mp3 -> Supabase tracks bucket (batch/collective, on-demand).",
+  "bin": {
+    "ingest": "./ingest.js"
+  },
+  "scripts": {
+    "start": "node ingest.js --watch",
+    "once": "node ingest.js --once",
+    "check": "node ingest.js --check"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "ws": "^8.21.3"
+  }
+}

@@ -41,10 +41,59 @@ $('toggle-ingest')?.addEventListener('click', ()=> setIngest());
 $('close-ingest')?.addEventListener('click', ()=> setIngest(false));
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') setIngest(false); });
 
-// --- Install prompt ---
+// --- PWA Install notification ---
 let deferredPrompt=null;
-window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); deferredPrompt=e; $('install-btn').style.display=''; });
-$('install-btn').addEventListener('click', async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; $('install-btn').style.display='none'; });
+const PWA_DISMISS_KEY='pwa-dismissed';
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+function showPwaBanner(){
+  if(isStandalone) return;
+  if(localStorage.getItem(PWA_DISMISS_KEY)) return;
+  const b=$('pwa-banner');
+  if(b) b.style.display='flex';
+}
+function hidePwaBanner(persist=false){
+  const b=$('pwa-banner'), ios=$('pwa-ios');
+  if(b) b.style.display='none';
+  if(ios) ios.style.display='none';
+  $('install-btn').style.display='none';
+  if(persist) localStorage.setItem(PWA_DISMISS_KEY, Date.now());
+}
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault();
+  deferredPrompt=e;
+  $('install-btn').style.display='';
+  showPwaBanner();
+});
+$('install-btn').addEventListener('click', async()=>{
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const choice=await deferredPrompt.userChoice;
+  if(choice.outcome==='accepted') hidePwaBanner(true);
+  deferredPrompt=null;
+});
+$('pwa-install')?.addEventListener('click', async()=>{
+  if(!deferredPrompt) { hidePwaBanner(true); toast('Use browser menu → Install app'); return; }
+  deferredPrompt.prompt();
+  const c=await deferredPrompt.userChoice;
+  if(c.outcome==='accepted') toast('Installing…');
+  hidePwaBanner(true);
+  deferredPrompt=null;
+});
+$('pwa-dismiss')?.addEventListener('click', ()=> hidePwaBanner(true));
+$('pwa-ios-dismiss')?.addEventListener('click', ()=> hidePwaBanner(true));
+window.addEventListener('appinstalled', ()=> hidePwaBanner(true));
+// iOS fallback: no beforeinstallprompt
+if(isIOS && !isStandalone){
+  setTimeout(()=>{
+    if(!localStorage.getItem(PWA_DISMISS_KEY) && !deferredPrompt){
+      const ios=$('pwa-ios');
+      if(ios) ios.style.display='flex';
+    }
+  }, 1500);
+}
+// auto show after 2s if installable but event missed (some browsers)
+setTimeout(()=>{ if(deferredPrompt) showPwaBanner(); }, 2500);
 
 // --- Queue ingest ---
 $('queue-btn').addEventListener('click', queueNow);

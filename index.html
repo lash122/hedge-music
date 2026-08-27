@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="music.css?v=3">
+  <link rel="stylesheet" href="music.css?v=4">
 </head>
 <body>
   <div class="bg-orb orb1"></div>
@@ -126,7 +126,26 @@
 
   <div id="toast"></div>
 
+  <!-- PWA Install Banner -->
+  <div id="pwa-banner" class="pwa-banner" style="display:none" role="dialog" aria-label="Install app">
+    <div class="pwa-icon">◈</div>
+    <div class="pwa-text">
+      <strong>Install Hedge Music</strong>
+      <span>Add to home screen — offline playback & native controls</span>
+    </div>
+    <button id="pwa-install" class="btn btn-main" style="padding:8px 16px;white-space:nowrap">Install</button>
+    <button id="pwa-dismiss" class="btn btn-ghost" style="padding:8px 12px" aria-label="Dismiss">✕</button>
+  </div>
+  <div id="pwa-ios" class="pwa-banner" style="display:none" role="dialog" aria-label="Install on iOS">
+    <div class="pwa-icon">⬆</div>
+    <div class="pwa-text">
+      <strong>Install on iPhone</strong>
+      <span>Tap Share → Add to Home Screen</span>
+    </div>
+    <button id="pwa-ios-dismiss" class="btn btn-ghost" style="padding:8px 12px">✕</button>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="music.js?v=3" defer></script>
+  <script src="music.js?v=4" defer></script>
 </body>
 </html>

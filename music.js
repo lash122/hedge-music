@@ -92,8 +92,28 @@ if(isIOS && !isStandalone){
     }
   }, 1500);
 }
-// auto show after 2s if installable but event missed (some browsers)
-setTimeout(()=>{ if(deferredPrompt) showPwaBanner(); }, 2500);
+// Fallback for HTTP IP / browsers without beforeinstallprompt: show generic banner after 1.5s
+setTimeout(()=>{
+  const isDismissed = localStorage.getItem(PWA_DISMISS_KEY);
+  const urlParams = new URLSearchParams(location.search);
+  const force = urlParams.has('install') || urlParams.has('pwa');
+  if(force) { localStorage.removeItem(PWA_DISMISS_KEY); $('pwa-banner').style.display='flex'; return; }
+  if(isStandalone || isDismissed) return;
+  if(deferredPrompt) { showPwaBanner(); return; }
+  // No prompt yet (e.g., http://192.168.1.7 is not secure) — still show manual install hint on first visit
+  // Only show once per session to not annoy
+  if(!sessionStorage.getItem('pwa-fallback-shown')){
+    sessionStorage.setItem('pwa-fallback-shown','1');
+    const b=$('pwa-banner');
+    if(b){
+      b.style.display='flex';
+      // change button text to hint manual install
+      const btn=$('pwa-install');
+      if(btn && !deferredPrompt) { btn.textContent='How to install'; btn.onclick = () => { toast('On phone: browser menu → Add to Home Screen / Install app'); }; }
+    }
+  }
+}, 1500);
+console.log('[PWA] standalone:', isStandalone, 'iOS:', isIOS, 'deferred:', !!deferredPrompt, 'dismissed:', !!localStorage.getItem(PWA_DISMISS_KEY));
 
 // --- Queue ingest ---
 $('queue-btn').addEventListener('click', queueNow);

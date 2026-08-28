@@ -757,43 +757,21 @@ $('player-expand')?.addEventListener('click', ()=>{ vibrate(8); openPlayerSheet(
 $('ps-close')?.addEventListener('click', ()=>{ vibrate(8); closePlayerSheet(); });
 playerOverlay?.addEventListener('click', closePlayerSheet);
 $('ps-more')?.addEventListener('click', ()=>{ if(curTrackId) openTrackSheet(curTrackId); });
-// subtle audio visualization (analyser bars, fallback to fake)
-let audioCtx=null, analyser=null, vizSrc=null, vizAnim=null;
-function initViz(){
-  if(audioCtx || !audio) return;
-  try{
-    const AC=window.AudioContext||window.webkitAudioContext;
-    if(!AC) return;
-    audioCtx=new AC();
-    analyser=audioCtx.createAnalyser();
-    analyser.fftSize=128;
-    analyser.smoothingTimeConstant=0.85;
-    try{ vizSrc=audioCtx.createMediaElementSource(audio); vizSrc.connect(analyser); analyser.connect(audioCtx.destination); } catch{}
-  } catch{}
-}
+// subtle audio visualization — fake bars only (no AudioContext hijack to keep audio stable)
+let vizAnim=null;
 function drawViz(){
   const canvas=$('viz-canvas'); if(!canvas) return;
   const ctx=canvas.getContext('2d');
   const W=canvas.width, H=canvas.height;
   const bars=32;
-  const fake = !analyser || audio.paused || audioCtx?.state==='suspended';
   ctx.clearRect(0,0,W,H);
-  // background
   ctx.fillStyle='rgba(111,203,126,.06)';
   ctx.fillRect(0,0,W,H);
-  const data = analyser ? new Uint8Array(analyser.frequencyBinCount) : null;
-  if(!fake && data) analyser.getByteFrequencyData(data);
   const step=W/bars;
   for(let i=0;i<bars;i++){
-    let v;
-    if(fake){
-      const t=Date.now()/260 + i*0.5;
-      v = isPlaying ? 0.15 + Math.abs(Math.sin(t))*0.55 + Math.random()*0.15 : 0.08;
-    } else {
-      v = (data[Math.floor(i/data.length*bars*2)]||0)/255;
-      v = Math.max(0.08, v*0.9);
-    }
-    const h = Math.max(3, v*H*0.9);
+    const t=Date.now()/260 + i*0.5;
+    const v = isPlaying && !audio.paused ? 0.18 + Math.abs(Math.sin(t))*0.52 + Math.random()*0.12 : 0.09;
+    const h = Math.max(3, v*H*0.88);
     const x=i*step+2, w=step-3, y=H-h;
     ctx.fillStyle=i%2? 'rgba(111,203,126,.9)' : 'rgba(111,203,126,.55)';
     ctx.beginPath();
@@ -803,11 +781,14 @@ function drawViz(){
   }
   if(!audio.paused && playerSheet.classList.contains('open')) vizAnim=requestAnimationFrame(drawViz);
 }
-audio.addEventListener('play', ()=>{ if(audioCtx?.state==='suspended') audioCtx.resume().catch(()=>{}); initViz(); cancelAnimationFrame(vizAnim); drawViz(); });
+audio.addEventListener('play', ()=>{ cancelAnimationFrame(vizAnim); drawViz(); });
 audio.addEventListener('pause', ()=>{ cancelAnimationFrame(vizAnim); setTimeout(drawViz, 100); });
-audio.addEventListener('playing', ()=>{ initViz(); drawViz(); });
+audio.addEventListener('playing', ()=>{ drawViz(); });
 // ensure canvas crisp
-new ResizeObserver(()=>{ const c=$('viz-canvas'); if(!c) return; const r=c.getBoundingClientRect(); const d=window.devicePixelRatio||1; c.width=r.width*d; c.height=40*d; }).observe(document.documentElement);
+try{ new ResizeObserver(()=>{ const c=$('viz-canvas'); if(!c) return; const r=c.getBoundingClientRect(); const d=window.devicePixelRatio||1; c.width=r.width*d; c.height=40*d; }).observe(document.documentElement); } catch{ setTimeout(()=>{ const c=$('viz-canvas'); if(c){ const r=c.getBoundingClientRect(); const d=window.devicePixelRatio||1; c.width=r.width*d; c.height=40*d; } }, 300); }
+// ensure audio not muted by previous WebAudio hijack — reset src if needed
+audio.crossOrigin='anonymous';
+audio.volume=0.9;
 
 // swipe: down to close + left/right for next/prev
 (function(){

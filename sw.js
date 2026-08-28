@@ -1,4 +1,4 @@
-const CACHE = 'hedge-music-v3';
+const CACHE = 'hedge-music-v4';
 const APP_SHELL = [
   './',
   './index.html',

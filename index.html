@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="music.css?v=25">
+  <link rel="stylesheet" href="music.css?v=26">
 </head>
 <body>
   <svg style="display:none" aria-hidden="true">
@@ -23,6 +23,9 @@
     <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1" fill="currentColor"/><circle cx="4" cy="12" r="1" fill="currentColor"/><circle cx="4" cy="18" r="1" fill="currentColor"/></symbol>
     <symbol id="i-queue" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
+    <symbol id="i-heart-filled" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></symbol>
     <symbol id="i-prev" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zM9.5 12L18 6v12L9.5 12z"/></symbol>
     <symbol id="i-next" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18V6z"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v14L19 12 8 5.14z"/></symbol>
@@ -82,7 +85,8 @@
           <span class="meta"><span id="tracks-count">0 tracks</span> · <span id="queue-count">0 pending</span></span>
         </div>
         <div class="search-wrap">
-          <input id="search" placeholder="Search title / artist / extractor" autocomplete="off" enterkeyhint="search">
+          <svg width="16" height="16" style="position:absolute;left:10px;pointer-events:none;color:var(--text-tertiary)"><use href="#i-search"/></svg>
+          <input id="search" placeholder="Search title / artist / extractor" autocomplete="off" enterkeyhint="search" style="padding-left:32px">
           <button id="search-clear" class="search-clear" aria-label="Clear search" style="display:none">✕</button>
         </div>
         <div class="filters" role="tablist" aria-label="Source filter">
@@ -264,6 +268,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="music.js?v=25" defer></script>
+  <script src="music.js?v=26" defer></script>
 </body>
 </html>

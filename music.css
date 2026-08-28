@@ -95,7 +95,7 @@ a{color:var(--text)}
 .sheet-handle{display:none}
 
 /* Layout */
-.layout{display:grid;grid-template-columns:220px 1fr;gap:16px;max-width:1160px;margin:16px auto 0;padding:0 20px 16px}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:12px;max-width:1160px;margin:12px auto 0;padding:0 16px 16px}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:0 4px 20px rgba(0,0,0,.2)}
 .sidebar{display:flex;flex-direction:column;gap:16px}
 .sidebar .card{margin:0;padding:16px}
@@ -160,7 +160,11 @@ a{color:var(--text)}
 .t-eq span:nth-child(3){height:7px;animation-delay:200ms}
 @keyframes eq{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
 .track .t-sub{color:var(--text-secondary);font-size:12px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;word-break:break-word;margin-top:2px}
-.t-actions{display:flex;gap:4px;align-items:center}
+.t-actions{display:flex;gap:6px;align-items:center}
+.t-actions .like-btn{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:transparent;border:1px solid transparent;color:var(--text-tertiary);cursor:pointer;transition:all .12s}
+.t-actions .like-btn:hover{color:var(--text);background:var(--surface-hover);border-color:var(--border)}
+.t-actions .like-btn.liked{color:var(--accent);border-color:rgba(111,203,126,.2);background:rgba(111,203,126,.1)}
+.t-actions .like-btn svg{width:18px;height:18px}
 .mini{padding:6px 10px;font-size:11px;border-radius:4px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;font-weight:500}
 .mini:hover{border-color:var(--border-strong);color:var(--text);background:var(--surface)}
 .play-mini{width:32px;height:32px;padding:0;display:grid;place-items:center;border-radius:50%;background:var(--text);color:var(--bg);border:1px solid var(--text);font-size:11px}

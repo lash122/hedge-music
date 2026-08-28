@@ -23,6 +23,17 @@ let curTrackId = null;
 let isPlaying = false;
 let repeat = false;
 let pendingSheetTrackId = null;
+const LIKES_KEY='hedge-likes';
+function getLikes(){ try{ return new Set(JSON.parse(localStorage.getItem(LIKES_KEY)||'[]')); }catch{ return new Set(); } }
+let likes=getLikes();
+function isLiked(id){ return likes.has(id); }
+function toggleLike(id){
+  if(likes.has(id)) likes.delete(id); else likes.add(id);
+  try{ localStorage.setItem(LIKES_KEY, JSON.stringify([...likes])); }catch{}
+  vibrate(8);
+  renderTracks();
+  toast(likes.has(id) ? '♥ Liked' : '♡ Unliked');
+}
 
 // --- Auth ---
 let currentUser=null;
@@ -397,6 +408,7 @@ function renderTracks(){
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const meta = [esc(tr.artist||tr.extractor||''), esc(tr.extractor||''), dur, size].filter(Boolean).join(' · ');
     const progress = isCur && isFinite(audio.duration) && audio.duration ? Math.round(audio.currentTime/audio.duration*100) : 0;
+    const liked=isLiked(tr.id);
     return `<div class="track ${playingClass}" data-id="${esc(tr.id)}">
       ${art}
       <div style="min-width:0;flex:1">
@@ -405,6 +417,7 @@ function renderTracks(){
       </div>
       <div class="t-actions">
         <button class="mini play-mini" data-play="${esc(tr.id)}" aria-label="Play">${isCur && isPlaying?'⏸':'▶'}</button>
+        <button class="like-btn ${liked?'liked':''}" data-like="${esc(tr.id)}" aria-label="Like"><svg width="18" height="18"><use href="${liked ? '#i-heart-filled' : '#i-heart'}"/></svg></button>
         <button class="track-more" data-more="${esc(tr.id)}" aria-label="More">⋯</button>
       </div>
       <div class="t-progress" aria-hidden="true"><div class="t-progress-bar" data-bar="${esc(tr.id)}" style="width:${progress}%"></div></div>
@@ -434,6 +447,12 @@ function renderTracks(){
       e.stopPropagation();
       vibrate(8);
       openTrackSheet(btn.getAttribute('data-more'));
+    });
+  });
+  el.querySelectorAll('[data-like]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      toggleLike(btn.getAttribute('data-like'));
     });
   });
 }

@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="music.css?v=22">
+  <link rel="stylesheet" href="music.css?v=23">
 </head>
 <body>
   <svg style="display:none" aria-hidden="true">
@@ -62,10 +62,6 @@
       </div>
       <div id="queue-status" class="status"></div>
       <div id="pending-list" class="pending-list"></div>
-      <details class="help">
-        <summary>How it works — laptop as server</summary>
-        <p>Phone queues → <code>ingest_queue</code> <code>pending</code>. Laptop polls, runs <code>yt-dlp -x --audio-format mp3</code> + <code>ffmpeg</code>, uploads to Supabase <code>tracks</code> bucket. PWA live-updates via Realtime.</p>
-      </details>
     </div>
   </section>
   <div id="sheet-overlay" class="sheet-overlay" style="display:none"></div>
@@ -196,6 +192,27 @@
   </div>
   <div id="player-overlay" class="sheet-overlay" style="display:none"></div>
 
+  <!-- Settings → Server / Ingestion -->
+  <div id="settings-sheet" class="action-sheet" aria-hidden="true" role="dialog" aria-label="Settings">
+    <div class="sheet-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 12px;border-bottom:1px solid var(--border);margin-bottom:12px">
+      <h3 style="font-size:14px;font-weight:600">Settings</h3>
+      <button id="settings-close" class="btn btn-ghost">Close</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="card" style="padding:14px">
+        <h4 style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Server / Ingestion</h4>
+        <p class="sub" style="margin-bottom:8px">Phone queues → <code>ingest_queue</code> <code>pending</code>. Laptop polls, runs <code>yt-dlp -x --audio-format mp3</code> + <code>ffmpeg</code>, uploads to Supabase <code>tracks</code> bucket. PWA live-updates via Realtime.</p>
+        <p class="sub" style="margin-bottom:0">Run on laptop: <code>node tools/ingest.js --watch</code></p>
+      </div>
+      <div class="card" style="padding:14px">
+        <h4 style="font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Storage</h4>
+        <p class="sub" style="margin-bottom:0"><span id="settings-storage">1GB • ~200 tracks</span> — Supabase <code>tracks</code> bucket, public read.</p>
+      </div>
+    </div>
+  </div>
+  <div id="settings-overlay" class="sheet-overlay" style="display:none"></div>
+
   <!-- Track Action Sheet -->
   <div id="track-sheet" class="action-sheet" aria-hidden="true" role="dialog" aria-label="Track actions">
     <div class="sheet-handle"></div>
@@ -247,6 +264,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="music.js?v=22" defer></script>
+  <script src="music.js?v=23" defer></script>
 </body>
 </html>

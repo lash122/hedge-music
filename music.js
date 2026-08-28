@@ -39,14 +39,20 @@ function renderAuth(){
   if(!area) return;
   if(currentUser){
     const initial=getInitial(currentUser.email);
-    area.innerHTML=`<button id="avatar-btn" class="avatar-btn" aria-label="Profile menu" aria-expanded="false">${esc(initial)}</button><div id="profile-menu" class="profile-menu" style="display:none"><div class="profile-email" title="${esc(currentUser.email)}">${esc(currentUser.email)}</div><button id="auth-logout" class="btn btn-ghost" style="width:100%">Log out</button></div>`;
+    area.innerHTML=`<button id="avatar-btn" class="avatar-btn" aria-label="Profile menu" aria-expanded="false">${esc(initial)}</button><div id="profile-menu" class="profile-menu" style="display:none"><div class="profile-email" title="${esc(currentUser.email)}">${esc(currentUser.email)}</div><button id="open-settings" class="btn btn-ghost" style="width:100%">⚙ Settings</button><button id="auth-logout" class="btn btn-ghost" style="width:100%">Log out</button></div>`;
     $('avatar-btn')?.addEventListener('click', (e)=>{ e.stopPropagation(); toggleProfileMenu(); });
+    $('open-settings')?.addEventListener('click', ()=>{ toggleProfileMenu(false); openSettings(); });
     $('auth-logout')?.addEventListener('click', async()=>{ toggleProfileMenu(false); await sb.auth.signOut(); });
   } else {
-    area.innerHTML=`<button id="auth-open" class="btn btn-ghost" style="padding:5px 10px">Log in</button>`;
+    area.innerHTML=`<button id="auth-open" class="btn btn-ghost" style="padding:5px 10px">Log in</button><button id="open-settings-guest" class="btn btn-ghost" style="padding:5px 8px" title="Settings">⚙</button>`;
     $('auth-open')?.addEventListener('click', ()=> showAuth('login'));
+    $('open-settings-guest')?.addEventListener('click', ()=> openSettings());
   }
 }
+function openSettings(){ const s=$('settings-sheet'), o=$('settings-overlay'); if(!s||!o) return; s.classList.add('open'); s.setAttribute('aria-hidden','false'); o.style.display='block'; document.body.style.overflow='hidden'; }
+function closeSettings(){ const s=$('settings-sheet'), o=$('settings-overlay'); if(!s||!o) return; s.classList.remove('open'); s.setAttribute('aria-hidden','true'); o.style.display='none'; document.body.style.overflow=''; }
+$('settings-close')?.addEventListener('click', closeSettings);
+$('settings-overlay')?.addEventListener('click', closeSettings);
 document.addEventListener('click', (e)=>{
   const area=$('auth-area'); const menu=$('profile-menu');
   if(!menu||menu.style.display==='none') return;
@@ -168,7 +174,7 @@ $('toggle-ingest')?.addEventListener('click', ()=> setIngest());
 $('close-ingest')?.addEventListener('click', ()=> setIngest(false));
 $('sheet-overlay')?.addEventListener('click', ()=> setIngest(false));
 $('fab-queue')?.addEventListener('click', ()=>{ vibrate(10); setIngest(true); });
-document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ setIngest(false); closePlayerSheet(); closeTrackSheet(); }});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ setIngest(false); closePlayerSheet(); closeTrackSheet(); closeSettings(); toggleProfileMenu(false); }});
 
 // Paste helper
 $('paste-btn')?.addEventListener('click', async()=>{

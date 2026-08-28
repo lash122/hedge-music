@@ -429,11 +429,11 @@ a{color:var(--text)}
   .fab:active{transform:scale(.96)}
   body[data-mobile-tab="queue"] .fab{display:none}
 
-   /* prevent bar/FAB covering last track — reserve scroll space and keep play button clear of FAB */
-  .tracks{padding-bottom:110px}
-  .track{padding-right:72px}
-  .layout{padding:0 12px calc(20px + env(safe-area-inset-bottom));margin-top:12px}
-  .main .card{margin-bottom:12px}
+    /* phone: compact card, no excessive empty — body+layout padding clears FAB/player */
+  .tracks{padding-bottom:12px}
+  .track{padding-right:14px}
+  .layout{padding:0 12 calc(12px + env(safe-area-inset-bottom));margin-top:8px}
+  .main .card{margin-bottom:0}
 
   #toast{bottom:calc(var(--player-h) + var(--tabs-h) + 16px + env(safe-area-inset-bottom))}
   /* banner sits between tabs and player — stack: tabs(0) < banner( tabs ) < player( tabs+48 ) */

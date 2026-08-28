@@ -319,15 +319,14 @@ a{color:var(--text)}
   .filters::-webkit-scrollbar{display:none}
   .chip{white-space:nowrap;flex-shrink:0}
 
-  .list-head{padding:10px 12px;position:sticky;top:52px;z-index:5;background:var(--surface)}
+   .list-head{padding:10px 12px;position:sticky;top:calc(52px + env(safe-area-inset-top));z-index:5;background:var(--surface)}
   .tracks-header{display:none}
   .track{padding:10px 12px;gap:10px;min-height:64px}
   .track img{width:48px;height:48px}
   .head-actions .btn{padding:8px 10px}
 
-  .player-bar{
+   .player-bar{
     height:var(--player-h);
-    bottom:var(--tabs-h);
     padding:6px 12px calc(6px + env(safe-area-inset-bottom)/2);
     bottom:calc(var(--tabs-h) + env(safe-area-inset-bottom));
     gap:10px;
@@ -372,11 +371,20 @@ a{color:var(--text)}
   .fab:active{transform:scale(.96)}
   body[data-mobile-tab="queue"] .fab{display:none}
 
+   /* prevent FAB covering last track */
+  .tracks{padding-bottom:72px}
+  .layout{padding-bottom:8px}
+
   #toast{bottom:calc(var(--player-h) + var(--tabs-h) + 16px + env(safe-area-inset-bottom))}
-  body:has(#pwa-banner[style*="flex"]) #toast{bottom:calc(var(--player-h) + var(--tabs-h) + 62px + env(safe-area-inset-bottom))}
+  /* banner sits between tabs and player — stack: tabs(0) < banner( tabs ) < player( tabs+48 ) */
+  body:has(#pwa-banner[style*="flex"]) #toast{bottom:calc(var(--player-h) + var(--tabs-h) + 64px + env(safe-area-inset-bottom))}
   body:has(#pwa-banner[style*="flex"]) .player-bar{bottom:calc(var(--tabs-h) + 48px + env(safe-area-inset-bottom))}
-  body:has(#pwa-banner[style*="flex"]) .bottom-tabs{bottom:48px}
-  body:has(#pwa-banner[style*="flex"]) .pwa-banner{bottom:calc(var(--player-h) + var(--tabs-h) + env(safe-area-inset-bottom))}
+  body:has(#pwa-banner[style*="flex"]) .bottom-tabs{bottom:0}
+  body:has(#pwa-banner[style*="flex"]) .pwa-banner{bottom:calc(var(--tabs-h) + env(safe-area-inset-bottom)); height:48px}
+  body:has(#pwa-banner[style*="flex"]) .fab{bottom:calc(var(--player-h) + var(--tabs-h) + 48px + 16px + env(safe-area-inset-bottom))}
+  /* auth overflow on tiny phones */
+  .top-actions{gap:6px;flex-wrap:nowrap}
+  .auth-area .user{max-width:88px}
 }
 @media(max-width:560px){
   .pwa-banner{padding:10px 12px}

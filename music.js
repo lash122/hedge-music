@@ -786,9 +786,8 @@ audio.addEventListener('pause', ()=>{ cancelAnimationFrame(vizAnim); setTimeout(
 audio.addEventListener('playing', ()=>{ drawViz(); });
 // ensure canvas crisp
 try{ new ResizeObserver(()=>{ const c=$('viz-canvas'); if(!c) return; const r=c.getBoundingClientRect(); const d=window.devicePixelRatio||1; c.width=r.width*d; c.height=40*d; }).observe(document.documentElement); } catch{ setTimeout(()=>{ const c=$('viz-canvas'); if(c){ const r=c.getBoundingClientRect(); const d=window.devicePixelRatio||1; c.width=r.width*d; c.height=40*d; } }, 300); }
-// ensure audio not muted by previous WebAudio hijack — reset src if needed
-audio.crossOrigin='anonymous';
 audio.volume=0.9;
+audio.removeAttribute('crossorigin');
 
 // swipe: down to close + left/right for next/prev
 (function(){

@@ -351,14 +351,12 @@ function renderTracks(){
   const el=$('tracks-list');
   if(!el) return;
   if(!list.length){ el.innerHTML='<div class="empty">No tracks match. Try clearing search/filter or queue some URLs.</div>'; return; }
-  const inPlaylistView = !!activePlaylistId;
   el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
     const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:48px;height:48px;background:var(--bg);border:1px solid var(--border);border-radius:4px;display:grid;place-items:center;font-size:14px">♪</div>`;
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const meta = [esc(tr.artist||tr.extractor||''), esc(tr.extractor||''), dur, size].filter(Boolean).join(' · ');
-    const removeBtn = inPlaylistView ? `<button class="t-remove" data-remove="${esc(tr.id)}" aria-label="Remove from playlist" title="Remove from playlist">✕</button>` : '';
     return `<div class="track ${isCur?'playing':''}" data-id="${esc(tr.id)}">
       ${art}
       <div style="min-width:0">
@@ -368,7 +366,6 @@ function renderTracks(){
       <div class="t-actions">
         <button class="mini play-mini" data-play="${esc(tr.id)}" aria-label="Play">${isCur && isPlaying?'⏸':'▶'}</button>
         <button class="track-more" data-more="${esc(tr.id)}" aria-label="More">⋯</button>
-        ${removeBtn}
       </div>
     </div>`;
   }).join('');
@@ -392,16 +389,6 @@ function renderTracks(){
       e.stopPropagation();
       vibrate(8);
       openTrackSheet(btn.getAttribute('data-more'));
-    });
-  });
-  el.querySelectorAll('[data-remove]').forEach(btn=>{
-    btn.addEventListener('click', async e=>{
-      e.stopPropagation();
-      vibrate(8);
-      const tid = btn.getAttribute('data-remove');
-      if(!activePlaylistId) return;
-      if(!confirm('Remove from playlist?')) return;
-      await removeFromPlaylist(activePlaylistId, tid);
     });
   });
 }

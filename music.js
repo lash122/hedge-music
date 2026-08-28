@@ -306,11 +306,17 @@ async function loadQueue(){
 }
 
 // --- Tracks ---
+function showSkeleton(){
+  const el=$('tracks-list'); if(!el) return;
+  el.innerHTML = Array(3).fill(0).map(()=> `<div class="track skeleton" style="pointer-events:none"><div style="width:46px;height:46px;border-radius:6px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div>`).join('');
+}
 async function loadTracks(){
+  showSkeleton();
   const { data, error } = await sb.from('tracks').select('*').order('created_at', {ascending:false}).limit(500);
   if(error){
     console.warn('tracks load', error.message);
-    if(error.message.includes('does not exist')) $('tracks-list').innerHTML = '<div class="empty">Run <code>supabase-music.sql</code> in Supabase SQL Editor, then queue a URL.</div>';
+    if(error.message.includes('does not exist')) $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">♪</div><div>Run <code>supabase-music.sql</code> in Supabase SQL Editor, then queue a URL.</div></div>';
+    else $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div>Failed to load tracks</div></div>';
     return;
   }
   tracks = data||[];
@@ -350,7 +356,17 @@ function renderTracks(){
   const list = filteredTracks();
   const el=$('tracks-list');
   if(!el) return;
-  if(!list.length){ el.innerHTML='<div class="empty">No tracks match. Try clearing search/filter or queue some URLs.</div>'; return; }
+  if(!list.length){
+    const isFiltered = activePlaylistId || filter!=='all' || searchQ;
+    if(isFiltered){
+      el.innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><div>No tracks match</div><small style="color:var(--text-tertiary)">Try clearing search or filter</small><button id="clear-filters-btn" class="btn btn-ghost" style="margin-top:8px">Clear filters</button></div>`;
+      setTimeout(()=>{ const b=$('clear-filters-btn'); if(b) b.addEventListener('click', ()=>{ const s=$('search'); if(s) s.value=''; searchQ=''; filter='all'; activePlaylistId=null; document.querySelectorAll('.chip').forEach(c=>{c.classList.remove('active'); c.setAttribute('aria-selected','false')}); const all=document.querySelector('[data-filter=all]'); if(all){all.classList.add('active'); all.setAttribute('aria-selected','true')} updateListHead(); renderPlaylists(); renderTracks(); updateSearchClear(); }); }, 0);
+    } else {
+      el.innerHTML=`<div class="empty"><div class="empty-icon">♪</div><div>No tracks yet</div><small style="color:var(--text-tertiary)">Queue a URL and run your laptop ingest</small><button id="empty-queue-btn" class="btn btn-main" style="margin-top:8px">＋ Queue first track</button></div>`;
+      setTimeout(()=>{ const b=$('empty-queue-btn'); if(b) b.addEventListener('click', ()=> setIngest(true)); }, 0);
+    }
+    return;
+  }
   el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
     const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:48px;height:48px;background:var(--bg);border:1px solid var(--border);border-radius:4px;display:grid;place-items:center;font-size:14px">♪</div>`;

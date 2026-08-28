@@ -247,8 +247,8 @@ $('pwa-install')?.addEventListener('click', async()=>{
   hidePwaBanner(true);
   deferredPrompt=null;
 });
-$('pwa-dismiss')?.addEventListener('click', ()=> hidePwaBanner(true));
-$('pwa-ios-dismiss')?.addEventListener('click', ()=> hidePwaBanner(true));
+$('pwa-dismiss')?.addEventListener('click', ()=> hidePwaBanner(false));
+$('pwa-ios-dismiss')?.addEventListener('click', ()=> hidePwaBanner(false));
 window.addEventListener('appinstalled', ()=> hidePwaBanner(true));
 if(isIOS && !isStandalone){
   setTimeout(()=>{
@@ -835,5 +835,5 @@ try{
 loadTracks(); loadQueue(); loadPlaylists();
 setInterval(()=>{ loadQueue(); }, 15000);
 
-// SW
-if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+// SW — explicit scope + error log for Render vs GH Pages
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', {scope:'./'}).catch(e=>console.warn('SW fail',e));

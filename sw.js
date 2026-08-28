@@ -1,4 +1,4 @@
-const CACHE = 'hedge-music-v5';
+const CACHE = 'hedge-music-v6';
 const APP_SHELL = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const APP_SHELL = [
   './music.css',
   './music.js',
   './manifest.webmanifest',
+  './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
@@ -15,7 +16,7 @@ self.addEventListener('install', e=>{
   self.skipWaiting();
 });
 self.addEventListener('activate', e=>{
-  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))));
+  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE && k!=='tracks-v1').map(k=>caches.delete(k)))));
   self.clients.claim();
 });
 

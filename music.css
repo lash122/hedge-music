@@ -144,6 +144,10 @@ a{color:var(--text)}
 .add-pl{display:none}
 .track-more{width:36px;height:36px;display:grid;place-items:center;border-radius:4px;background:transparent;border:1px solid transparent;color:var(--text-tertiary);cursor:pointer}
 .track-more:hover{background:var(--surface-hover);border-color:var(--border);color:var(--text)}
+.t-remove{width:32px;height:32px;display:grid;place-items:center;border-radius:4px;background:transparent;border:1px solid var(--border);color:#c49a9a;cursor:pointer;font-size:12px}
+.t-remove:hover{background:#1f1414;border-color:#3a2a2a;color:#e8a0a0}
+.as-remove{border-color:#3a2a2a !important;color:#e8a0a0 !important;background:#1f1414 !important}
+.as-remove:hover{background:#2a1a1a !important}
 .empty{color:var(--text-tertiary);padding:28px 16px;text-align:center;font-size:13px;border-top:1px solid var(--border)}
 .empty code{color:var(--text-secondary)}
 

@@ -334,17 +334,31 @@ function filteredTracks(){
   return t;
 }
 
+async function removeFromPlaylist(pid, tid){
+  if(!pid || !tid) return;
+  if(!requireAuth()) return;
+  const { error } = await sb.from('playlist_tracks').delete().eq('playlist_id', pid).eq('track_id', tid);
+  if(error){
+    if(error.message.includes('policy') || error.message.includes('permission')) toast('Not allowed — not owner');
+    else toast('Remove failed: '+error.message);
+    return;
+  }
+  toast('Removed from playlist');
+  await loadPlaylists();
+}
 function renderTracks(){
   const list = filteredTracks();
   const el=$('tracks-list');
   if(!el) return;
   if(!list.length){ el.innerHTML='<div class="empty">No tracks match. Try clearing search/filter or queue some URLs.</div>'; return; }
+  const inPlaylistView = !!activePlaylistId;
   el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
     const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:48px;height:48px;background:var(--bg);border:1px solid var(--border);border-radius:4px;display:grid;place-items:center;font-size:14px">♪</div>`;
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const meta = [esc(tr.artist||tr.extractor||''), esc(tr.extractor||''), dur, size].filter(Boolean).join(' · ');
+    const removeBtn = inPlaylistView ? `<button class="t-remove" data-remove="${esc(tr.id)}" aria-label="Remove from playlist" title="Remove from playlist">✕</button>` : '';
     return `<div class="track ${isCur?'playing':''}" data-id="${esc(tr.id)}">
       ${art}
       <div style="min-width:0">
@@ -354,6 +368,7 @@ function renderTracks(){
       <div class="t-actions">
         <button class="mini play-mini" data-play="${esc(tr.id)}" aria-label="Play">${isCur && isPlaying?'⏸':'▶'}</button>
         <button class="track-more" data-more="${esc(tr.id)}" aria-label="More">⋯</button>
+        ${removeBtn}
       </div>
     </div>`;
   }).join('');
@@ -379,6 +394,16 @@ function renderTracks(){
       openTrackSheet(btn.getAttribute('data-more'));
     });
   });
+  el.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', async e=>{
+      e.stopPropagation();
+      vibrate(8);
+      const tid = btn.getAttribute('data-remove');
+      if(!activePlaylistId) return;
+      if(!confirm('Remove from playlist?')) return;
+      await removeFromPlaylist(activePlaylistId, tid);
+    });
+  });
 }
 
 // --- Track Sheet ---
@@ -390,9 +415,20 @@ function openTrackSheet(trackId){
   const head=$('track-sheet-head');
   const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" alt="">` : `<div style="width:48px;height:48px;background:var(--bg);border:1px solid var(--border);border-radius:6px;display:grid;place-items:center">♪</div>`;
   head.innerHTML=`${art}<div class="as-head-text"><div class="as-head-title">${esc(tr.title)}</div><div class="as-head-sub">${esc(tr.artist||tr.extractor||'')}</div></div>`;
+  // contextual remove — show only if currently viewing that playlist and track is in it
+  let removeHtml = '';
+  if(activePlaylistId && playlistTracks.some(pt=>pt.playlist_id===activePlaylistId && pt.track_id===trackId)){
+    const plName = playlists.find(p=>p.id===activePlaylistId)?.name || 'this playlist';
+    removeHtml = `<button id="as-remove" class="as-btn as-remove" style="border-color:#3a2a2a;color:#e8a0a0;background:#1f1414">✕ Remove from ${esc(plName)}</button><div class="as-divider"></div>`;
+  }
   const plWrap=$('as-playlists');
   if(playlists.length){
-    plWrap.innerHTML = playlists.map(p=> `<button class="as-pl-btn" data-pid="${esc(p.id)}">＋ ${esc(p.name)}</button>`).join('');
+    plWrap.innerHTML = removeHtml + playlists.map(p=> `<button class="as-pl-btn" data-pid="${esc(p.id)}">＋ ${esc(p.name)}</button>`).join('');
+    const rmBtn = plWrap.querySelector('#as-remove');
+    if(rmBtn) rmBtn.addEventListener('click', async()=>{
+      await removeFromPlaylist(activePlaylistId, pendingSheetTrackId);
+      closeTrackSheet();
+    });
     plWrap.querySelectorAll('.as-pl-btn').forEach(b=>{
       b.addEventListener('click', async()=>{
         await addToPlaylist(b.dataset.pid, pendingSheetTrackId);
@@ -400,7 +436,12 @@ function openTrackSheet(trackId){
       });
     });
   } else {
-    plWrap.innerHTML='<small style="color:var(--text-tertiary)">No playlists — create one first</small>';
+    plWrap.innerHTML= removeHtml + '<small style="color:var(--text-tertiary)">No playlists — create one first</small>';
+    const rmBtn = plWrap.querySelector('#as-remove');
+    if(rmBtn) rmBtn.addEventListener('click', async()=>{
+      await removeFromPlaylist(activePlaylistId, pendingSheetTrackId);
+      closeTrackSheet();
+    });
   }
   sheet.classList.add('open'); sheet.setAttribute('aria-hidden','false');
   overlay.style.display='block';

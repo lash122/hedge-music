@@ -281,7 +281,7 @@ a{color:var(--text)}
 /* Mobile overrides */
 @media(max-width:860px){
   :root{--player-h:64px;--tabs-h:56px}
-  body{padding-bottom:calc(var(--player-h) + var(--tabs-h) + env(safe-area-inset-bottom))}
+  body{padding-bottom:calc(var(--player-h) + var(--tabs-h) + 24px + env(safe-area-inset-bottom))}
   .topbar{padding:0 14px;padding-top:env(safe-area-inset-top);height:52px}
   .hint{display:none}
   .desktop-only{display:none !important}
@@ -371,9 +371,10 @@ a{color:var(--text)}
   .fab:active{transform:scale(.96)}
   body[data-mobile-tab="queue"] .fab{display:none}
 
-   /* prevent FAB covering last track */
-  .tracks{padding-bottom:72px}
-  .layout{padding-bottom:8px}
+   /* prevent bar/FAB covering last track — last track must clear 56px FAB + 16 gap + 64px player */
+  .tracks{padding-bottom:96px}
+  .layout{padding:0 12px calc(20px + env(safe-area-inset-bottom));margin-top:12px}
+  .main .card{margin-bottom:12px}
 
   #toast{bottom:calc(var(--player-h) + var(--tabs-h) + 16px + env(safe-area-inset-bottom))}
   /* banner sits between tabs and player — stack: tabs(0) < banner( tabs ) < player( tabs+48 ) */

@@ -385,20 +385,23 @@ function renderTracks(){
   }
   el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
-    const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:48px;height:48px;background:var(--bg);border:1px solid var(--border);border-radius:4px;display:grid;place-items:center;font-size:14px">♪</div>`;
+    const playingClass = isCur ? 'playing' + (isPlaying ? ' is-playing' : '') : '';
+    const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:64px;height:64px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`;
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const meta = [esc(tr.artist||tr.extractor||''), esc(tr.extractor||''), dur, size].filter(Boolean).join(' · ');
-    return `<div class="track ${isCur?'playing':''}" data-id="${esc(tr.id)}">
+    const progress = isCur && isFinite(audio.duration) && audio.duration ? Math.round(audio.currentTime/audio.duration*100) : 0;
+    return `<div class="track ${playingClass}" data-id="${esc(tr.id)}">
       ${art}
-      <div style="min-width:0">
-        <div class="t-title">${esc(tr.title)}</div>
+      <div style="min-width:0;flex:1">
+        <div style="display:flex;align-items:center;gap:6px;min-width:0"><div class="t-title" style="flex:1">${esc(tr.title)}</div><div class="t-eq" aria-hidden="true"><span></span><span></span><span></span></div></div>
         <div class="t-sub">${meta}</div>
       </div>
       <div class="t-actions">
         <button class="mini play-mini" data-play="${esc(tr.id)}" aria-label="Play">${isCur && isPlaying?'⏸':'▶'}</button>
         <button class="track-more" data-more="${esc(tr.id)}" aria-label="More">⋯</button>
       </div>
+      <div class="t-progress" aria-hidden="true"><div class="t-progress-bar" data-bar="${esc(tr.id)}" style="width:${progress}%"></div></div>
     </div>`;
   }).join('');
   el.querySelectorAll('.track').forEach(node=>{
@@ -686,7 +689,7 @@ function setRepeat(v){
 $('repeat-btn')?.addEventListener('click', ()=>{ vibrate(8); setRepeat(!repeat); toast(repeat?'Repeat on':'Repeat off'); });
 $('repeat-btn-ps')?.addEventListener('click', ()=>{ vibrate(8); setRepeat(!repeat); toast(repeat?'Repeat on':'Repeat off'); });
 audio.addEventListener('ended', ()=>{ if(repeat) audio.play().catch(()=>{}); else next(); });
-audio.addEventListener('play', ()=>{ isPlaying=true; syncPlayButtons(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='playing';}catch{} });
+audio.addEventListener('play', ()=>{ isPlaying=true; syncPlayButtons(); renderTracks(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='playing';}catch{} });
 audio.addEventListener('pause', ()=>{ isPlaying=false; syncPlayButtons(); renderTracks(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='paused';}catch{} });
 audio.addEventListener('error', ()=>{ toast('Audio load error — file may be missing'); isPlaying=false; syncPlayButtons(); });
 function onTimeUpdate(){
@@ -698,6 +701,9 @@ function onTimeUpdate(){
   const seek=$('seek'), psSeek=$('ps-seek');
   if(seek) seek.value=v;
   if(psSeek) psSeek.value=v;
+  // row progress line
+  const bar=document.querySelector(`.t-progress-bar[data-bar="${CSS.escape(curTrackId||'')}"]`);
+  if(bar) bar.style.width = (audio.currentTime/audio.duration*100) + '%';
   if('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession){
     try{ navigator.mediaSession.setPositionState({duration: audio.duration||0, playbackRate: audio.playbackRate||1, position: audio.currentTime||0}); }catch{}
   }

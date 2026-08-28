@@ -141,10 +141,24 @@ a{color:var(--text)}
 }
 .track:first-child{border-top:none}
 .track:hover{background:var(--surface-hover)}
-.track.playing{background:var(--surface-active)}
+.track.playing{background:linear-gradient(90deg, rgba(232,224,216,.08), var(--surface-active));border-left:2px solid var(--accent);border-top-color:rgba(232,224,216,.12)}
+.track.playing.is-playing{background:linear-gradient(90deg, rgba(232,224,216,.12), var(--surface-active))}
 .track.playing .t-title{color:var(--accent)}
+.track.playing.is-playing .play-mini{background:var(--accent);border-color:var(--accent);color:#0c0c0e;box-shadow:0 2px 8px rgba(232,224,216,.2)}
+.track{position:relative;overflow:hidden}
+.t-progress{position:absolute;left:64px;right:0;bottom:0;height:2px;background:transparent;overflow:hidden;display:none}
+.track.playing.is-playing .t-progress{display:block}
+.t-progress-bar{height:100%;width:0%;background:var(--accent);transition:width .1s linear}
+@media(max-width:860px){.t-progress{left:60px}}
 .track img{width:64px;height:64px;object-fit:cover;border-radius:var(--radius-md);background:var(--bg);display:block;box-shadow:0 4px 12px rgba(0,0,0,.35)}
 .track .t-title{font-weight:500;font-size:15px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;word-break:break-word}
+.t-eq{display:none;align-items:end;gap:2px;height:10px;margin-left:6px}
+.track.playing.is-playing .t-eq{display:flex}
+.t-eq span{width:3px;background:var(--accent);border-radius:2px;animation:eq 700ms ease-in-out infinite}
+.t-eq span:nth-child(2){animation-delay:120ms;height:6px}
+.t-eq span:nth-child(1){height:10px;animation-delay:0ms}
+.t-eq span:nth-child(3){height:7px;animation-delay:200ms}
+@keyframes eq{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
 .track .t-sub{color:var(--text-secondary);font-size:12px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;word-break:break-word;margin-top:2px}
 .t-actions{display:flex;gap:4px;align-items:center}
 .mini{padding:6px 10px;font-size:11px;border-radius:4px;background:transparent;border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;font-weight:500}

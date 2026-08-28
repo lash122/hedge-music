@@ -647,7 +647,11 @@ function playTrack(id){
 function syncPlayButtons(){
   const icon = isPlaying ? '⏸' : '▶';
   const b=$('play-btn'); if(b) b.textContent=icon;
-  const pb=$('ps-play'); if(pb) pb.textContent=icon;
+  const pb=$('ps-play'); if(pb){
+    const playIcon=pb.querySelector('.i-play-icon'), pauseIcon=pb.querySelector('.i-pause-icon');
+    if(playIcon&&pauseIcon){ playIcon.style.display=isPlaying?'none':''; pauseIcon.style.display=isPlaying?'':'none'; }
+    else pb.textContent=icon;
+  }
 }
 function updatePlayerUI(tr){
   const title=$('player-title'), artist=$('player-artist'), psTitle=$('ps-title'), psArtist=$('ps-artist');
@@ -753,21 +757,92 @@ $('player-expand')?.addEventListener('click', ()=>{ vibrate(8); openPlayerSheet(
 $('ps-close')?.addEventListener('click', ()=>{ vibrate(8); closePlayerSheet(); });
 playerOverlay?.addEventListener('click', closePlayerSheet);
 $('ps-more')?.addEventListener('click', ()=>{ if(curTrackId) openTrackSheet(curTrackId); });
-// swipe down to close player sheet
+// subtle audio visualization (analyser bars, fallback to fake)
+let audioCtx=null, analyser=null, vizSrc=null, vizAnim=null;
+function initViz(){
+  if(audioCtx || !audio) return;
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC) return;
+    audioCtx=new AC();
+    analyser=audioCtx.createAnalyser();
+    analyser.fftSize=128;
+    analyser.smoothingTimeConstant=0.85;
+    try{ vizSrc=audioCtx.createMediaElementSource(audio); vizSrc.connect(analyser); analyser.connect(audioCtx.destination); } catch{}
+  } catch{}
+}
+function drawViz(){
+  const canvas=$('viz-canvas'); if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const bars=32;
+  const fake = !analyser || audio.paused || audioCtx?.state==='suspended';
+  ctx.clearRect(0,0,W,H);
+  // background
+  ctx.fillStyle='rgba(111,203,126,.06)';
+  ctx.fillRect(0,0,W,H);
+  const data = analyser ? new Uint8Array(analyser.frequencyBinCount) : null;
+  if(!fake && data) analyser.getByteFrequencyData(data);
+  const step=W/bars;
+  for(let i=0;i<bars;i++){
+    let v;
+    if(fake){
+      const t=Date.now()/260 + i*0.5;
+      v = isPlaying ? 0.15 + Math.abs(Math.sin(t))*0.55 + Math.random()*0.15 : 0.08;
+    } else {
+      v = (data[Math.floor(i/data.length*bars*2)]||0)/255;
+      v = Math.max(0.08, v*0.9);
+    }
+    const h = Math.max(3, v*H*0.9);
+    const x=i*step+2, w=step-3, y=H-h;
+    ctx.fillStyle=i%2? 'rgba(111,203,126,.9)' : 'rgba(111,203,126,.55)';
+    ctx.beginPath();
+    if(ctx.roundRect) ctx.roundRect(x,y,w,h,2);
+    else ctx.rect(x,y,w,h);
+    ctx.fill();
+  }
+  if(!audio.paused && playerSheet.classList.contains('open')) vizAnim=requestAnimationFrame(drawViz);
+}
+audio.addEventListener('play', ()=>{ if(audioCtx?.state==='suspended') audioCtx.resume().catch(()=>{}); initViz(); cancelAnimationFrame(vizAnim); drawViz(); });
+audio.addEventListener('pause', ()=>{ cancelAnimationFrame(vizAnim); setTimeout(drawViz, 100); });
+audio.addEventListener('playing', ()=>{ initViz(); drawViz(); });
+// ensure canvas crisp
+new ResizeObserver(()=>{ const c=$('viz-canvas'); if(!c) return; const r=c.getBoundingClientRect(); const d=window.devicePixelRatio||1; c.width=r.width*d; c.height=40*d; }).observe(document.documentElement);
+
+// swipe: down to close + left/right for next/prev
 (function(){
   if(!playerSheet) return;
-  let sy=0, cy=0, drag=false;
-  playerSheet.addEventListener('touchstart', e=>{ sy=e.touches[0].clientY; drag=true; playerSheet.style.transition='none'; }, {passive:true});
+  let sx=0, sy=0, dx=0, dy=0, drag=false;
+  const TH_X=60, TH_Y=90;
+  playerSheet.addEventListener('touchstart', e=>{ sx=e.touches[0].clientX; sy=e.touches[0].clientY; dx=0; dy=0; drag=true; playerSheet.style.transition='none'; }, {passive:true});
   playerSheet.addEventListener('touchmove', e=>{
     if(!drag) return;
-    cy=e.touches[0].clientY - sy;
-    if(cy>0) playerSheet.style.transform=`translateY(${cy}px)`;
+    dx=e.touches[0].clientX - sx;
+    dy=e.touches[0].clientY - sy;
+    // prioritize vertical vs horizontal
+    if(Math.abs(dx) > Math.abs(dy)){
+      // horizontal drag — translateX subtle
+      if(Math.abs(dx) < 80) playerSheet.style.transform=`translateX(${dx*0.35}px)`;
+    } else {
+      if(dy>0) playerSheet.style.transform=`translateY(${dy}px)`;
+    }
   }, {passive:true});
   playerSheet.addEventListener('touchend', ()=>{
     drag=false; playerSheet.style.transition=''; playerSheet.style.transform='';
-    if(cy>100) closePlayerSheet();
-    cy=0;
+    if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > TH_X){
+      vibrate(10);
+      if(dx < 0) next(); else prev();
+    } else if(dy > TH_Y) closePlayerSheet();
+    dx=0; dy=0;
   });
+  // desktop drag with mouse for testing
+  let mx=0, my=0, mdx=0, mdy=0, mdrag=false;
+  const artWrap=document.querySelector('.ps-art-wrap');
+  if(artWrap){
+    artWrap.addEventListener('mousedown', e=>{ mx=e.clientX; my=e.clientY; mdrag=true; });
+    window.addEventListener('mousemove', e=>{ if(!mdrag) return; mdx=e.clientX - mx; mdy=e.clientY - my; });
+    window.addEventListener('mouseup', ()=>{ if(!mdrag) return; mdrag=false; if(Math.abs(mdx) > TH_X && Math.abs(mdx) > Math.abs(mdy)){ if(mdx<0) next(); else prev(); } mdx=0; mdy=0; });
+  }
 })();
 
 // search/filter - debounced

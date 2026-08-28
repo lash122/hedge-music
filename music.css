@@ -236,9 +236,14 @@ a{color:var(--text)}
 .ps-progress input[type=range]{width:100%;height:4px;-webkit-appearance:none;background:var(--border);border-radius:2px;accent-color:var(--accent);cursor:pointer}
 .ps-progress input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;background:var(--accent);border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,.4)}
 .ps-time{display:flex;justify-content:space-between;font-size:11px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}
+.ps-viz{height:40px;margin:4px 0;opacity:.85;overflow:hidden;border-radius:6px;background:rgba(111,203,126,.06);border:1px solid rgba(111,203,126,.12)}
+.ps-viz canvas{width:100%;height:40px;display:block}
 .ps-controls{display:flex;gap:10px;justify-content:center;align-items:center}
 .ps-controls .icon-btn{width:44px;height:44px;font-size:14px}
 .ps-controls .icon-btn.play{width:56px;height:56px;font-size:18px}
+.ps-controls-big{gap:14px}
+.ps-controls-big .icon-btn-lg{width:52px;height:52px;border-radius:50%}
+.ps-controls-big .icon-btn-xl{width:68px;height:68px}
 .ps-queue-hint{text-align:center;font-size:11px;color:var(--text-tertiary)}
 
 /* Action sheet */

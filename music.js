@@ -414,7 +414,11 @@ function renderTracks(){
     node.addEventListener('click', e=>{
       if(e.target.closest('[data-more]') || e.target.closest('[data-play]')) return;
       vibrate(8);
-      playTrack(node.dataset.id);
+      if(node.dataset.id === curTrackId){
+        openPlayerSheet();
+      } else {
+        playTrack(node.dataset.id);
+      }
     });
   });
   el.querySelectorAll('[data-play]').forEach(btn=>{

@@ -459,29 +459,74 @@ function renderPlaylists(){
   const el=$('playlists-list');
   if(!el) return;
   if(!currentUser){ el.innerHTML='<small style="color:var(--text-tertiary)">Log in to make your own playlists — library is public to browse</small>'; return; }
-  if(!playlists.length){ el.innerHTML='<small style="color:var(--text-tertiary)">No playlists yet</small>'; return; }
-  el.innerHTML = playlists.map(p=>{
-    const count = playlistTracks.filter(pt=>pt.playlist_id===p.id).length;
-    return `<div class="playlist-item ${activePlaylistId===p.id?'active':''}" data-id="${esc(p.id)}">
-      <span>▶ ${esc(p.name)} <small>(${count})</small></span>
-      <button class="mini del-pl" data-id="${esc(p.id)}" style="background:#1f1f2a;border:1px solid var(--border);padding:4px 8px;border-radius:6px;cursor:pointer">✕</button>
+  // build list with All tracks on top
+  const allCount = tracks.length;
+  const allActive = !activePlaylistId ? 'active' : '';
+  let html = `<div class="playlist-item ${allActive}" data-id="">
+      <span>♫ All tracks <small>(${allCount})</small></span>
+      <small style="color:var(--text-tertiary)">view all</small>
     </div>`;
-  }).join('');
+  if(!playlists.length){
+    html += '<small style="color:var(--text-tertiary);padding:8px 2px;display:block">No playlists yet — create one above</small>';
+  } else {
+    html += playlists.map(p=>{
+      const count = playlistTracks.filter(pt=>pt.playlist_id===p.id).length;
+      return `<div class="playlist-item ${activePlaylistId===p.id?'active':''}" data-id="${esc(p.id)}">
+        <span>▶ ${esc(p.name)} <small>(${count})</small></span>
+        <button class="mini del-pl" data-id="${esc(p.id)}" style="background:#1f1f2a;border:1px solid var(--border);padding:4px 8px;border-radius:6px;cursor:pointer">✕</button>
+      </div>`;
+    }).join('');
+  }
+  el.innerHTML = html;
   el.querySelectorAll('.playlist-item').forEach(n=> n.addEventListener('click', e=>{
     if(e.target.closest('.del-pl')) return;
-    activePlaylistId = n.dataset.id;
-    const titleEl=$('list-title'); if(titleEl) titleEl.textContent = playlists.find(p=>p.id===activePlaylistId)?.name || 'Playlist';
+    const id = n.dataset.id;
+    // toggle: clicking active All stays All, clicking active playlist again goes back to All
+    if(id === activePlaylistId){ activePlaylistId = null; }
+    else activePlaylistId = id || null;
+    const titleEl=$('list-title'); if(titleEl) titleEl.textContent = activePlaylistId ? (playlists.find(p=>p.id===activePlaylistId)?.name || 'Playlist') : 'All tracks';
+    // update header back affordance
+    updateListHead();
     renderPlaylists(); renderTracks();
     if(isMobile()) setMobileTab('library');
+    // scroll tracks into view
+    if(activePlaylistId) setTimeout(()=> document.querySelector('.main')?.scrollIntoView({behavior:'smooth', block:'start'}), 100);
   }));
   el.querySelectorAll('.del-pl').forEach(b=> b.addEventListener('click', async e=>{
     e.stopPropagation();
     const id=b.dataset.id;
     if(!confirm('Delete playlist?')) return;
     await sb.from('playlists').delete().eq('id', id);
-    if(activePlaylistId===id){ activePlaylistId=null; const t=$('list-title'); if(t) t.textContent='All tracks'; }
+    if(activePlaylistId===id){ activePlaylistId=null; const t=$('list-title'); if(t) t.textContent='All tracks'; updateListHead(); }
     await loadPlaylists();
   }));
+  updateListHead();
+}
+function updateListHead(){
+  const titleEl=$('list-title');
+  const head=document.querySelector('.list-head');
+  if(!head||!titleEl) return;
+  let back=head.querySelector('#back-to-all');
+  if(activePlaylistId){
+    const name = playlists.find(p=>p.id===activePlaylistId)?.name || 'Playlist';
+    titleEl.textContent = name;
+    if(!back){
+      back=document.createElement('button');
+      back.id='back-to-all';
+      back.className='btn btn-ghost';
+      back.style.padding='6px 10px';
+      back.style.fontSize='12px';
+      back.textContent='← All tracks';
+      back.addEventListener('click', ()=>{ vibrate(8); activePlaylistId=null; updateListHead(); renderPlaylists(); renderTracks(); toast('Showing all tracks'); });
+      head.insertBefore(back, titleEl);
+    }
+    back.style.display='';
+    titleEl.style.display='none';
+  } else {
+    titleEl.textContent='All tracks';
+    titleEl.style.display='';
+    if(back) back.style.display='none';
+  }
 }
 $('create-playlist-btn')?.addEventListener('click', async()=>{
   if(!requireAuth()) return;

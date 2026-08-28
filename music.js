@@ -705,6 +705,7 @@ function onTimeUpdate(){
   const seek=$('seek'), psSeek=$('ps-seek');
   if(seek) seek.value=v;
   if(psSeek) psSeek.value=v;
+  const fill=$('ps-fill'); if(fill) fill.style.width=(audio.currentTime/audio.duration*100)+'%';
   // row progress line
   const bar=document.querySelector(`.t-progress-bar[data-bar="${CSS.escape(curTrackId||'')}"]`);
   if(bar) bar.style.width = (audio.currentTime/audio.duration*100) + '%';
@@ -718,7 +719,7 @@ function seekTo(frac){
   if(isFinite(audio.duration)) audio.currentTime = frac*audio.duration;
 }
 $('seek')?.addEventListener('input', ()=> seekTo($('seek').value/1000));
-$('ps-seek')?.addEventListener('input', ()=> seekTo($('ps-seek').value/1000));
+$('ps-seek')?.addEventListener('input', ()=>{ const v=$('ps-seek').value; seekTo(v/1000); const f=$('ps-fill'); if(f) f.style.width=(v/10)+'%'; });
 $('vol')?.addEventListener('input', ()=> audio.volume=$('vol').value);
 audio.volume=0.9;
 $('shuffle-btn')?.addEventListener('click', ()=>{
@@ -757,35 +758,6 @@ $('player-expand')?.addEventListener('click', ()=>{ vibrate(8); openPlayerSheet(
 $('ps-close')?.addEventListener('click', ()=>{ vibrate(8); closePlayerSheet(); });
 playerOverlay?.addEventListener('click', closePlayerSheet);
 $('ps-more')?.addEventListener('click', ()=>{ if(curTrackId) openTrackSheet(curTrackId); });
-// subtle audio visualization — fake bars only (no AudioContext hijack to keep audio stable)
-let vizAnim=null;
-function drawViz(){
-  const canvas=$('viz-canvas'); if(!canvas) return;
-  const ctx=canvas.getContext('2d');
-  const W=canvas.width, H=canvas.height;
-  const bars=32;
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle='rgba(111,203,126,.06)';
-  ctx.fillRect(0,0,W,H);
-  const step=W/bars;
-  for(let i=0;i<bars;i++){
-    const t=Date.now()/260 + i*0.5;
-    const v = isPlaying && !audio.paused ? 0.18 + Math.abs(Math.sin(t))*0.52 + Math.random()*0.12 : 0.09;
-    const h = Math.max(3, v*H*0.88);
-    const x=i*step+2, w=step-3, y=H-h;
-    ctx.fillStyle=i%2? 'rgba(111,203,126,.9)' : 'rgba(111,203,126,.55)';
-    ctx.beginPath();
-    if(ctx.roundRect) ctx.roundRect(x,y,w,h,2);
-    else ctx.rect(x,y,w,h);
-    ctx.fill();
-  }
-  if(!audio.paused && playerSheet.classList.contains('open')) vizAnim=requestAnimationFrame(drawViz);
-}
-audio.addEventListener('play', ()=>{ cancelAnimationFrame(vizAnim); drawViz(); });
-audio.addEventListener('pause', ()=>{ cancelAnimationFrame(vizAnim); setTimeout(drawViz, 100); });
-audio.addEventListener('playing', ()=>{ drawViz(); });
-// ensure canvas crisp
-try{ new ResizeObserver(()=>{ const c=$('viz-canvas'); if(!c) return; const r=c.getBoundingClientRect(); const d=window.devicePixelRatio||1; c.width=r.width*d; c.height=40*d; }).observe(document.documentElement); } catch{ setTimeout(()=>{ const c=$('viz-canvas'); if(c){ const r=c.getBoundingClientRect(); const d=window.devicePixelRatio||1; c.width=r.width*d; c.height=40*d; } }, 300); }
 audio.volume=0.9;
 audio.removeAttribute('crossorigin');
 

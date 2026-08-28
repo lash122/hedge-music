@@ -26,17 +26,33 @@ let pendingSheetTrackId = null;
 
 // --- Auth ---
 let currentUser=null;
+function getInitial(email){ return (email||'?').trim().charAt(0).toUpperCase(); }
+function toggleProfileMenu(show){
+  const m=$('profile-menu'), b=$('avatar-btn');
+  if(!m||!b) return;
+  const willShow = show ?? m.style.display==='none';
+  m.style.display = willShow ? 'flex' : 'none';
+  b.setAttribute('aria-expanded', willShow ? 'true' : 'false');
+}
 function renderAuth(){
   const area=$('auth-area');
   if(!area) return;
   if(currentUser){
-    area.innerHTML=`<span class="user">${esc(currentUser.email)}</span><button id="auth-logout" class="btn btn-ghost" style="padding:5px 10px">Log out</button>`;
-    $('auth-logout')?.addEventListener('click', async()=>{ await sb.auth.signOut(); });
+    const initial=getInitial(currentUser.email);
+    area.innerHTML=`<button id="avatar-btn" class="avatar-btn" aria-label="Profile menu" aria-expanded="false">${esc(initial)}</button><div id="profile-menu" class="profile-menu" style="display:none"><div class="profile-email" title="${esc(currentUser.email)}">${esc(currentUser.email)}</div><button id="auth-logout" class="btn btn-ghost" style="width:100%">Log out</button></div>`;
+    $('avatar-btn')?.addEventListener('click', (e)=>{ e.stopPropagation(); toggleProfileMenu(); });
+    $('auth-logout')?.addEventListener('click', async()=>{ toggleProfileMenu(false); await sb.auth.signOut(); });
   } else {
     area.innerHTML=`<button id="auth-open" class="btn btn-ghost" style="padding:5px 10px">Log in</button>`;
     $('auth-open')?.addEventListener('click', ()=> showAuth('login'));
   }
 }
+document.addEventListener('click', (e)=>{
+  const area=$('auth-area'); const menu=$('profile-menu');
+  if(!menu||menu.style.display==='none') return;
+  if(area && !area.contains(e.target)) toggleProfileMenu(false);
+});
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') toggleProfileMenu(false); });
 function showAuth(mode){
   $('auth-title').textContent = mode==='signup' ? 'Sign up' : 'Log in';
   $('auth-error').textContent='';

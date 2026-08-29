@@ -1,8 +1,9 @@
-const CACHE = 'hedge-music-v6';
+const CACHE = 'hedge-music-v7';
 const APP_SHELL = [
   './',
   './index.html',
   './music.html',
+  './admin.html',
   './music.css',
   './music.js',
   './manifest.webmanifest',

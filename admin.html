@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hedge Music — Admin</title>
+<link rel="stylesheet" href="music.css?v=27">
+<style>
+.admin-wrap{max-width:1100px;margin:16px auto;padding:0 16px 40px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.kpi small{color:var(--text-tertiary);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.kpi strong{font-size:22px;display:block;margin-top:4px}
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border)}
+.table td{padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:280px;overflow:hidden;text-overflow:ellipsis}
+.badge-err{background:var(--danger-bg);border:1px solid var(--danger-border);color:#e8a0a0;padding:2px 6px;border-radius:4px;font-size:11px}
+@media(max-width:860px){.kpis{grid-template-columns:repeat(2,1fr)} .table{font-size:12px}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-text">HEDGE MUSIC • ADMIN</span></div>
+  <div class="top-actions">
+    <a href="music.html" class="btn btn-ghost" style="text-decoration:none">← Library</a>
+    <span id="auth-area" class="auth-area"></span>
+  </div>
+</header>
+<div class="admin-wrap">
+  <div id="gate" class="card" style="padding:16px;margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Access</h3>
+      <span id="gate-status" class="badge">checking…</span>
+    </div>
+    <div id="gate-msg" style="margin-top:10px;color:var(--text-secondary);font-size:13px"></div>
+    <div id="gate-actions" style="margin-top:12px;display:flex;gap:8px"></div>
+  </div>
+
+  <div id="dash" style="display:none">
+    <div class="kpis" id="kpis"></div>
+    <div style="display:grid;grid-template-columns:1fr;gap:12px">
+      <div class="card" style="padding:14px;overflow:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+          <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Top tracks (plays/views)</h3>
+          <button id="refresh-btn" class="btn btn-ghost" style="padding:6px 10px">↺ Refresh</button>
+        </div>
+        <table class="table"><thead><tr><th>Track</th><th>Artist</th><th>Extractor</th><th>Plays</th><th>Views</th><th>Queues</th></tr></thead><tbody id="leader-body"><tr><td colspan="6" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="two-col">
+        <div class="card" style="padding:14px;overflow:auto">
+          <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Recent events</h3>
+          <table class="table"><thead><tr><th>When</th><th>Event</th><th>Track</th><th>User</th></tr></thead><tbody id="events-body"><tr><td colspan="4" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+        </div>
+        <div class="card" style="padding:14px;overflow:auto">
+          <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Queue health (pending/error)</h3>
+          <table class="table"><thead><tr><th>URL</th><th>Status</th><th>Error</th><th>When</th></tr></thead><tbody id="queue-body"><tr><td colspan="4" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+        </div>
+      </div>
+      <div class="card" style="padding:14px">
+        <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Setup</h3>
+        <p class="sub" style="margin:0">Seed admin: in Supabase SQL Editor run<br><code>insert into public.admin_users(user_id) select id from auth.users where email='you@example.com' on conflict do nothing;</code><br>Then reload. Uses <code>public.is_admin()</code> + additive policies — no effect on <code>music.html</code> behavior.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="auth-dialog" class="modal" style="display:none" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <h3>Log in (admin)</h3>
+    <p class="sub" style="margin-bottom:10px">Use your Supabase auth email. Must be in <code>admin_users</code>.</p>
+    <input id="auth-email" type="email" placeholder="Email" autocomplete="email" style="margin-bottom:8px">
+    <input id="auth-pass" type="password" placeholder="Password" autocomplete="current-password" style="margin-bottom:10px">
+    <div id="auth-error" class="status err" style="min-height:16px"></div>
+    <div class="row" style="margin-top:8px"><button id="auth-login" class="btn btn-main" style="flex:1">Log in</button><button id="auth-signup" class="btn btn-ghost" style="flex:1">Sign up</button></div>
+    <button id="auth-close" class="btn btn-ghost" style="width:100%;margin-top:8px">Cancel</button>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+'use strict';
+const SUPABASE_URL='https://mgwaehtmdecvptzzigwv.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1nd2FlaHRtZGVjdnB0enppZ3d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3Nzk4NjEsImV4cCI6MjEwMzM1NTg2MX0.iXHwe9wQgC_fHvOqh9TFRcJu9ypJpRdXVvOaKweGreQ';
+const sb=supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+function toast(m){ const t=$('toast'); if(!t) return; t.textContent=m; t.classList.add('show'); t.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>{t.classList.remove('show'); t.style.display='none';},2500); }
+let currentUser=null;
+function getInitial(e){ return (e||'?').trim().charAt(0).toUpperCase(); }
+function renderAuth(){
+  const a=$('auth-area');
+  if(!a) return;
+  if(currentUser){
+    a.innerHTML=`<span class="badge" title="${esc(currentUser.email)}">${esc(currentUser.email)}</span><button id="auth-logout" class="btn btn-ghost" style="padding:5px 10px">Log out</button>`;
+    $('auth-logout')?.addEventListener('click', async()=>{ await sb.auth.signOut(); });
+  } else {
+    a.innerHTML=`<button id="auth-open" class="btn btn-ghost">Log in</button>`;
+    $('auth-open')?.addEventListener('click', ()=> showAuth());
+  }
+}
+function showAuth(){ $('auth-error').textContent=''; $('auth-dialog').style.display='grid'; setTimeout(()=>$('auth-email').focus(),80); }
+function hideAuth(){ $('auth-dialog').style.display='none'; }
+$('auth-close')?.addEventListener('click', hideAuth);
+$('auth-dialog')?.addEventListener('click', e=>{ if(e.target.id==='auth-dialog') hideAuth(); });
+$('auth-login')?.addEventListener('click', async()=>{
+  const email=$('auth-email').value.trim(), pass=$('auth-pass').value;
+  if(!email||!pass) return $('auth-error').textContent='Enter email & password';
+  $('auth-error').textContent='…';
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error) $('auth-error').textContent=error.message; else { hideAuth(); toast('Logged in'); }
+});
+$('auth-signup')?.addEventListener('click', async()=>{
+  const email=$('auth-email').value.trim(), pass=$('auth-pass').value;
+  if(pass.length<6) return $('auth-error').textContent='Password min 6 chars';
+  $('auth-error').textContent='…';
+  const {error}=await sb.auth.signUp({email,password:pass});
+  if(error) $('auth-error').textContent=error.message; else { hideAuth(); toast('Account created'); }
+});
+
+async function checkAdmin(){
+  const gate=$('gate'), status=$('gate-status'), msg=$('gate-msg'), acts=$('gate-actions'), dash=$('dash');
+  if(!currentUser){
+    status.textContent='not logged in';
+    status.style.color='var(--danger)';
+    msg.innerHTML='Log in with an admin account. Then seed <code>admin_users</code> once in SQL Editor.';
+    acts.innerHTML=`<button id="gate-login" class="btn btn-main">Log in</button>`;
+    $('gate-login')?.addEventListener('click', showAuth);
+    dash.style.display='none';
+    return false;
+  }
+  // use security-definer is_admin() via rpc (bypasses RLS recursion), fallback to own-row select
+  let isAdmin=false;
+  try{
+    const { data: rpcData, error: rpcErr } = await sb.rpc('is_admin');
+    if(!rpcErr) isAdmin = !!rpcData;
+    else {
+      const { data, error } = await sb.from('admin_users').select('user_id').eq('user_id', currentUser.id).maybeSingle();
+      if(error) console.warn(error.message);
+      isAdmin = !!data;
+    }
+  }catch(e){
+    const { data } = await sb.from('admin_users').select('user_id').eq('user_id', currentUser.id).maybeSingle();
+    isAdmin = !!data;
+  }
+  if(!isAdmin){
+    status.textContent='not admin';
+    status.style.color='var(--danger)';
+    msg.innerHTML=`Logged in as <b>${esc(currentUser.email)}</b> but not in <code>admin_users</code>. Run in Supabase SQL Editor:<br><code>insert into public.admin_users(user_id) select id from auth.users where email='${esc(currentUser.email)}' on conflict do nothing;</code>`;
+    acts.innerHTML=`<button id="gate-recheck" class="btn btn-ghost">Recheck</button>`;
+    $('gate-recheck')?.addEventListener('click', checkAdmin);
+    dash.style.display='none';
+    return false;
+  }
+  status.textContent='admin ✓';
+  status.style.color='var(--accent)';
+  msg.textContent='Access granted — loading stats…';
+  acts.innerHTML='';
+  dash.style.display='block';
+  return true;
+}
+
+async function loadStats(){
+  const kpis=$('kpis');
+  // v_admin_stats may not exist until sql run — handle gracefully
+  let s=null;
+  const { data, error } = await sb.from('v_admin_stats').select('*').maybeSingle();
+  if(!error) s=data;
+  else {
+    // fallback: count directly (admin policies allow)
+    const [tracks, queueP, queueE, playlists, plays] = await Promise.all([
+      sb.from('tracks').select('id', {count:'exact', head:true}),
+      sb.from('ingest_queue').select('id', {count:'exact', head:true}).eq('status','pending'),
+      sb.from('ingest_queue').select('id', {count:'exact', head:true}).eq('status','error'),
+      sb.from('playlists').select('id', {count:'exact', head:true}),
+      sb.from('track_events').select('id', {count:'exact', head:true}).eq('event','play')
+    ]);
+    s={ tracks_total: tracks.count??0, queue_pending: queueP.count??0, queue_errors: queueE.count??0, playlists_total: playlists.count??0, plays_total: plays.count??0, views_total: 0, queues_total: 0 };
+    if(error && !String(error.message).includes('does not exist')) console.warn('stats fallback', error.message);
+  }
+  const items=[
+    ['Tracks', s?.tracks_total??0],
+    ['Pending queue', s?.queue_pending??0],
+    ['Queue errors', s?.queue_errors??0],
+    ['Playlists', s?.playlists_total??0],
+    ['Plays (events)', s?.plays_total??0],
+    ['Views', s?.views_total??0],
+  ];
+  kpis.innerHTML=items.map(([k,v])=>`<div class="kpi"><small>${esc(k)}</small><strong>${esc(v)}</strong></div>`).join('');
+
+  // leaderboard
+  const lb=$('leader-body');
+  const { data: leader, error: e2 } = await sb.from('v_track_leaderboard').select('*').order('plays', {ascending:false}).limit(20);
+  let rows=leader;
+  if(e2){
+    // fallback aggregate client-side from events + tracks
+    const { data: tracks } = await sb.from('tracks').select('id,title,artist,extractor').limit(200);
+    const { data: evs } = await sb.from('track_events').select('track_id,event').in('event',['play','view','queue']).limit(5000);
+    const map={}; (evs||[]).forEach(r=>{ map[r.track_id]=map[r.track_id]||{plays:0,views:0,queues:0}; if(r.event==='play') map[r.track_id].plays++; if(r.event==='view') map[r.track_id].views++; if(r.event==='queue') map[r.track_id].queues++; });
+    rows=(tracks||[]).map(t=>({...t, plays:map[t.id]?.plays||0, views:map[t.id]?.views||0, queues:map[t.id]?.queues||0})).sort((a,b)=>b.plays-a.plays).slice(0,20);
+  }
+  if(!rows || !rows.length) lb.innerHTML=`<tr><td colspan="6" style="color:var(--text-tertiary)">No data yet — play a track to generate events.</td></tr>`;
+  else lb.innerHTML=rows.map(r=>`<tr><td title="${esc(r.title)}">${esc((r.title||'').slice(0,40))}</td><td>${esc((r.artist||'').slice(0,24))}</td><td>${esc(r.extractor||'')}</td><td>${esc(r.plays||0)}</td><td>${esc(r.views||0)}</td><td>${esc(r.queues||0)}</td></tr>`).join('');
+
+  // recent events
+  const evBody=$('events-body');
+  const { data: evs2, error: e3 } = await sb.from('track_events').select('created_at,event,track_id,user_id,meta').order('created_at',{ascending:false}).limit(30);
+  if(e3) evBody.innerHTML=`<tr><td colspan="4" style="color:var(--danger)">${esc(e3.message)} — run supabase-admin-analytics.sql</td></tr>`;
+  else if(!evs2?.length) evBody.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">No events yet</td></tr>`;
+  else {
+    // lookup titles
+    const ids=[...new Set(evs2.map(e=>e.track_id).filter(Boolean))].slice(0,30);
+    let titleMap={};
+    if(ids.length){ const {data:ts}=await sb.from('tracks').select('id,title').in('id', ids); (ts||[]).forEach(t=>titleMap[t.id]=t.title); }
+    evBody.innerHTML=evs2.map(e=>{
+      const when=new Date(e.created_at).toLocaleString();
+      const title=e.track_id ? (titleMap[e.track_id]|| e.track_id.slice(0,8)) : (e.meta?.q|| e.meta?.url||'—');
+      return `<tr><td>${esc(when)}</td><td><span class="badge">${esc(e.event)}</span></td><td title="${esc(title)}">${esc(String(title).slice(0,32))}</td><td>${esc((e.user_id||'anon').slice(0,8))}</td></tr>`;
+    }).join('');
+  }
+
+  // queue health
+  const qBody=$('queue-body');
+  const { data: qrows } = await sb.from('ingest_queue').select('original_url,status,error,created_at').order('created_at',{ascending:false}).limit(20);
+  if(!qrows?.length) qBody.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">No queue rows</td></tr>`;
+  else qBody.innerHTML=qrows.map(r=>{
+    const st=r.status==='error'?`<span class="badge-err">error</span>`:`<span class="badge">${esc(r.status)}</span>`;
+    return `<tr><td title="${esc(r.original_url)}">${esc(r.original_url.slice(0,38))}</td><td>${st}</td><td>${esc((r.error||'').slice(0,40))}</td><td>${esc(new Date(r.created_at).toLocaleString())}</td></tr>`;
+  }).join('');
+}
+
+async function init(){
+  const { data:{session} } = await sb.auth.getSession();
+  currentUser=session?.user||null;
+  renderAuth();
+  const ok=await checkAdmin();
+  if(ok) await loadStats();
+}
+sb.auth.onAuthStateChange(async(_,s)=>{ currentUser=s?.user||null; renderAuth(); const ok=await checkAdmin(); if(ok) await loadStats(); });
+$('refresh-btn')?.addEventListener('click', loadStats);
+init();
+</script>
+</body>
+</html>

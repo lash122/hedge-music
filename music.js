@@ -121,6 +121,15 @@ function requireAuth(){
   return false;
 }
 function isMobile(){ return window.innerWidth<=860; }
+// --- Analytics (additive, fire-and-forget, never blocks UI) ---
+function logEvent(event, trackId, meta){
+  try{
+    const payload={ event, meta: meta||null };
+    if(trackId) payload.track_id=trackId;
+    if(currentUser?.id) payload.user_id=currentUser.id;
+    sb.from('track_events').insert(payload).then(()=>{},()=>{});
+  }catch{}
+}
 
 // --- Mobile Tabs ---
 function setMobileTab(tab){
@@ -309,6 +318,7 @@ async function queueNow(){
     toast('Queued! Run laptop ingest');
     if(isMobile()) setMobileTab('queue');
     await loadQueue();
+    logEvent('queue', null, { url: url.slice(0,120) });
   }catch(e){
     $('queue-status').textContent='✗ '+e.message; $('queue-status').className='status err';
     if(e.message.includes('does not exist') || e.message.includes('relation')){
@@ -635,7 +645,7 @@ async function addToPlaylist(pid, tid){
   if(error) {
     if(error.message.includes('duplicate')) toast('Already in playlist');
     else toast(error.message);
-  } else { toast('Added to playlist'); await loadPlaylists(); }
+  } else { toast('Added to playlist'); await loadPlaylists(); logEvent('playlist_add', tid, { playlist_id: pid }); }
 }
 
 // --- Player ---
@@ -660,6 +670,7 @@ function playTrack(id){
   isPlaying=true;
   updatePlayerUI(tr);
   renderTracks();
+  logEvent('play', tr.id, { extractor: tr.extractor, title: tr.title?.slice(0,60) });
   if('mediaSession' in navigator){
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -831,7 +842,11 @@ let searchDebounce=null;
 searchInput?.addEventListener('input', ()=>{
   clearTimeout(searchDebounce);
   updateSearchClear();
-  searchDebounce=setTimeout(()=>{ searchQ=searchInput.value.trim(); renderTracks(); }, 160);
+  searchDebounce=setTimeout(()=>{
+    searchQ=searchInput.value.trim();
+    renderTracks();
+    if(searchQ.length>=2) logEvent('search', null, { q: searchQ.slice(0,40), filter });
+  }, 160);
 });
 document.querySelectorAll('.chip').forEach(c=> c.addEventListener('click', ()=>{
   vibrate(5);

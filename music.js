@@ -95,17 +95,24 @@ $('auth-signup')?.addEventListener('click', async()=>{
   const {error}=await sb.auth.signUp({email,password:pass});
   if(error) $('auth-error').textContent=error.message; else { hideAuth(); toast('Account created — check email if confirmation required'); }
 });
+let authRedirectDone=false;
+function redirectToLogin(){
+  if(authRedirectDone) return;
+  authRedirectDone=true;
+  showAuth('login');
+  toast('Private library — log in to continue');
+}
 async function initAuth(){
   const {data:{session}}=await sb.auth.getSession();
   currentUser=session?.user||null;
   renderAuth();
-  if(currentUser){ await Promise.all([loadQueue(), loadPlaylists()]); }
-  else { queue=[]; playlists=[]; playlistTracks=[]; const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to make playlists</small>'; }
+  if(currentUser){ await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]); }
+  else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to see your private library</small>'; $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in required</div><button id="gate-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`; setTimeout(()=>{ const b=$('gate-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); if(!sessionStorage.getItem('login-redirect')){ sessionStorage.setItem('login-redirect','1'); setTimeout(()=> redirectToLogin(), 400); } },0); }
 }
 sb.auth.onAuthStateChange(async (_event, session)=>{
   currentUser=session?.user||null;
   renderAuth();
-  if(currentUser){ await Promise.all([loadQueue(), loadPlaylists()]); } else { queue=[]; playlists=[]; playlistTracks=[]; renderPlaylists(); }
+  if(currentUser){ authRedirectDone=false; sessionStorage.removeItem('login-redirect'); await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]); } else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; renderPlaylists(); renderTracks(); if(!authRedirectDone) setTimeout(()=> redirectToLogin(), 200); }
 });
 initAuth();
 
@@ -376,8 +383,8 @@ async function loadTracks(){
   }
   tracks = data||[];
   const tc=$('tracks-count'); if(tc) tc.textContent = tracks.length+' tracks';
-  // private library: show gate if no rows and not logged in
-  if(!tracks.length && !currentUser){
+  // private library: enforce login gate
+  if(!currentUser){
     const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in to see your tracks</div><button id="empty-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`;
     setTimeout(()=>{ const b=$('empty-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0);
     return;

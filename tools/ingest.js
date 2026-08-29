@@ -91,18 +91,23 @@ async function downloadMp3(url, outTemplate) {
   await run(YT_DLP, a);
 }
 
+let isProcessing=false;
 async function processQueue() {
+  if(isProcessing) { log('Already processing, skipping overlapping tick'); return; }
+  isProcessing=true;
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
   const { data: pending, error } = await sb.from('ingest_queue').select('*').eq('status', 'pending').order('created_at', { ascending: true }).limit(20);
-  if (error) { err(`Queue fetch: ${error.message}`); return; }
-  if (!pending?.length) { log('No pending jobs. Queue more URLs in PWA.'); return; }
+  if (error) { err(`Queue fetch: ${error.message}`); isProcessing=false; return; }
+  if (!pending?.length) { log('No pending jobs. Queue more URLs in PWA.'); isProcessing=false; return; }
   log(`Found ${pending.length} pending job(s) — processing collectively...`);
 
   for (const job of pending) {
     const idShort = job.id.slice(0, 8);
     log(`\n[${idShort}] ${job.original_url}`);
     try {
-      await sb.from('ingest_queue').update({ status: 'processing' }).eq('id', job.id);
+      // atomic claim: only process if still pending (prevents double-download with concurrent workers)
+      const { data: claimed, error: claimErr } = await sb.from('ingest_queue').update({ status: 'processing' }).eq('id', job.id).eq('status','pending').select('id').maybeSingle();
+      if(claimErr || !claimed){ log(`  ↳ already claimed by another worker, skipping`); continue; }
 
       // 1. Metadata (supports any site)
       const meta = await getMetadata(job.original_url);
@@ -122,8 +127,9 @@ async function processQueue() {
       // 2. Download - use local tmp to avoid /tmp cleanup issues
       const localTmp = join(__dirname, 'tmp');
       try { mkdirSync(localTmp, { recursive: true }); } catch {}
+      const safeExtractor = extractor.replace(/[^a-z0-9]/gi,'_').slice(0,30) || 'unknown';
       const safeId = extractorId.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const tmpBase = join(localTmp, `hedge3-${safeId}`);
+      const tmpBase = join(localTmp, `hedge3-${safeExtractor}-${safeId}`);
       const template = `${tmpBase}.%(ext)s`;
       log(`  ↳ downloading yt-dlp -x --audio-format mp3 --audio-quality ${QUALITY} ...`);
       await downloadMp3(job.original_url, template);
@@ -142,10 +148,15 @@ async function processQueue() {
       const size = buf.length;
       log(`  ↳ ${ (size/1024/1024).toFixed(2)} MB, uploading to tracks bucket...`);
 
-      // 3. Upload to Supabase Storage - extractor-prefixed to avoid collisions
-      const storagePath = `${extractor}-${extractorId}.mp3`;
-      const { error: upErr } = await sb.storage.from('tracks').upload(storagePath, buf, { contentType: 'audio/mpeg', upsert: true });
-      if (upErr) throw new Error(`Storage upload: ${upErr.message}`);
+      // 3. Upload to Supabase Storage - owner folder for private RLS + extractor prefix
+      if(size > 100*1024*1024) throw new Error(`File too large ${ (size/1024/1024).toFixed(1)}MB >100MB`);
+      const safeStorageName = `${safeExtractor}-${safeId}.mp3`;
+      const storagePath = job.owner_id ? `${job.owner_id}/${safeStorageName}` : safeStorageName;
+      const { error: upErr } = await sb.storage.from('tracks').upload(storagePath, buf, { contentType: 'audio/mpeg', upsert: false });
+      if (upErr) {
+        if(upErr.message.includes('already exists') || upErr.message.includes('duplicate') || upErr.statusCode==='409') log(`  ↳ storage already exists, ok`);
+        else throw new Error(`Storage upload: ${upErr.message}`);
+      }
       // cleanup local tmp in both success and error paths
       try { unlinkSync(mp3Path); } catch {}
       // also clean any leftover tmp older than 1h
@@ -180,15 +191,12 @@ async function processQueue() {
 
     } catch (e) {
       // cleanup local file on error too
-      try {
-        const localTmp = join(__dirname, 'tmp');
-        const cand = join(localTmp, `hedge3-${String(job.original_url).slice(-8).replace(/[^a-zA-Z0-9]/g,'_')}.mp3`);
-        if(existsSync(cand)) try{unlinkSync(cand)}catch{}
-      } catch {}
+      try { if(typeof mp3Path!=='undefined' && existsSync(mp3Path)) try{unlinkSync(mp3Path)}catch{} } catch {}
       err(`  ✗ failed: ${e.message}`);
       await sb.from('ingest_queue').update({ status: 'error', error: String(e.message).slice(0, 500) }).eq('id', job.id);
     }
   }
+  isProcessing=false;
   log('\nBatch complete. PWA will auto-refresh via realtime.');
 }
 

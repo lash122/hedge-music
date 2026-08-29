@@ -1,4 +1,4 @@
-const CACHE = 'hedge-music-v7';
+const CACHE = 'hedge-music-v8';
 const APP_SHELL = [
   './',
   './index.html',
@@ -27,8 +27,9 @@ self.addEventListener('fetch', e=>{
   const url = new URL(request.url);
   // Supabase API/storage should be network-first (fresh tracks/queue)
   if(url.hostname.includes('supabase.co')){
-    // Cache MP3s for offline after first play if user clicks cache
-    if(url.pathname.includes('/storage/v1/object/public/tracks/')){
+    // Cache MP3s for offline after first play if user clicks cache — handles public and private (signed) URLs, skip Range requests
+    if(url.pathname.includes('/storage/v1/object/') && url.pathname.includes('/tracks/')){
+      if(request.headers.has('range')) return;
       e.respondWith(caches.match(request).then(cached=> cached || fetch(request).then(r=>{
         const copy=r.clone();
         caches.open('tracks-v1').then(c=>c.put(request, copy));

@@ -432,7 +432,7 @@ a{color:var(--text)}
     /* phone: compact card, no excessive empty — body+layout padding clears FAB/player */
   .tracks{padding-bottom:12px}
   .track{padding-right:14px}
-  .layout{padding:0 12 calc(12px + env(safe-area-inset-bottom));margin-top:8px}
+  .layout{padding:0 12px calc(12px + env(safe-area-inset-bottom));margin-top:8px}
   .main .card{margin-bottom:0}
 
   #toast{bottom:calc(var(--player-h) + var(--tabs-h) + 16px + env(safe-area-inset-bottom))}

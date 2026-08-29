@@ -30,7 +30,7 @@ as $$
   select exists(select 1 from public.admin_users where user_id = auth.uid());
 $$;
 revoke all on function public.is_admin() from public;
-grant execute on function public.is_admin() to anon, authenticated;
+grant execute on function public.is_admin() to authenticated;
 
 -- 1. Additive admin READ policies — OR semantics, never revoke existing public/owner reads
 -- tracks
@@ -61,9 +61,10 @@ create table if not exists public.track_events (
   created_at timestamptz not null default now()
 );
 alter table public.track_events enable row level security;
--- anyone (anon+auth) can log — never blocks PWA if fails we ignore
+-- only authenticated can log (anon flood locked) — logEvent fire-and-forget with user_id
 drop policy if exists "anyone can log events" on public.track_events;
-create policy "anyone can log events" on public.track_events for insert to anon, authenticated with check (true);
+drop policy if exists "auth can log events" on public.track_events;
+create policy "auth can log events" on public.track_events for insert to authenticated with check (auth.uid() = user_id);
 -- only admin can read events (service_role bypasses)
 drop policy if exists "admin read events" on public.track_events;
 create policy "admin read events" on public.track_events for select to authenticated using (public.is_admin());

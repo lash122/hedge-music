@@ -6,7 +6,8 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $ = id => document.getElementById(id);
-const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');
+function isValidThumb(url){ try{ const u=new URL(url); return u.protocol==='https:'; }catch{ return false; } }
 function toast(m){ const t=$('toast'); if(!t) return; t.textContent=m; t.classList.add('show'); t.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>{t.classList.remove('show'); t.style.display='none';},2500); }
 function vibrate(p=10){ try{ navigator.vibrate&&navigator.vibrate(p);}catch{} }
 
@@ -111,13 +112,23 @@ initAuth();
 // --- Helpers ---
 function publicUrl(storagePath){
   if(!storagePath) return '';
-  return `${SUPABASE_URL}/storage/v1/object/public/tracks/${encodeURIComponent(storagePath)}`;
+  // fallback for legacy public bucket; private bucket uses signed URL via getSignedUrl
+  return `${SUPABASE_URL}/storage/v1/object/public/tracks/${storagePath.split('/').map(encodeURIComponent).join('/')}`;
+}
+async function getSignedUrl(storagePath){
+  if(!storagePath) return '';
+  try{
+    const { data, error } = await sb.storage.from('tracks').createSignedUrl(storagePath, 3600);
+    if(!error && data?.signedUrl) return data.signedUrl;
+  }catch{}
+  // fallback to publicUrl for legacy public bucket during migration
+  return publicUrl(storagePath);
 }
 function fmtTime(s){ if(!isFinite(s) || s==null) return '--:--'; const m=Math.floor(s/60), sec=Math.floor(s%60); return m+':'+String(sec).padStart(2,'0'); }
 function requireAuth(){
   if(currentUser) return true;
   showAuth('login');
-  toast('Log in to queue & make playlists — library is public to browse');
+  toast('Log in to see your private library — tracks are owner-only');
   return false;
 }
 function isMobile(){ return window.innerWidth<=860; }
@@ -365,6 +376,12 @@ async function loadTracks(){
   }
   tracks = data||[];
   const tc=$('tracks-count'); if(tc) tc.textContent = tracks.length+' tracks';
+  // private library: show gate if no rows and not logged in
+  if(!tracks.length && !currentUser){
+    const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in to see your tracks</div><button id="empty-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`;
+    setTimeout(()=>{ const b=$('empty-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0);
+    return;
+  }
   renderTracks();
 }
 
@@ -414,7 +431,7 @@ function renderTracks(){
   el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
     const playingClass = isCur ? 'playing' + (isPlaying ? ' is-playing' : '') : '';
-    const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:64px;height:64px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`;
+    const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:64px;height:64px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`;
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const meta = [esc(tr.artist||tr.extractor||''), esc(tr.extractor||''), dur, size].filter(Boolean).join(' · ');
@@ -658,13 +675,14 @@ function buildQueueFromCurrent(startId){
   queuePos = idx>=0? idx:0;
   window._playQueue = list;
 }
-function playTrack(id){
+async function playTrack(id){
   const tr = tracks.find(t=>t.id===id);
   if(!tr) return;
   if(!tr.storage_path){ toast('File missing — re-ingest'); return; }
+  if(!currentUser){ showAuth('login'); toast('Log in to play your private tracks'); return; }
   curTrackId=id;
   buildQueueFromCurrent(id);
-  const url = publicUrl(tr.storage_path);
+  const url = await getSignedUrl(tr.storage_path);
   if(!url){ toast('File missing'); return; }
   audio.src = url;
   audio.play().catch(e=>{ toast('Playback failed'); console.warn(e); isPlaying=false; syncPlayButtons(); });
@@ -677,6 +695,8 @@ function playTrack(id){
       navigator.mediaSession.metadata = new MediaMetadata({
         title: tr.title, artist: tr.artist||tr.extractor||'', artwork: tr.thumbnail_url?[{src: tr.thumbnail_url, sizes:'512x512', type:'image/png'}]:[]
       });
+      navigator.mediaSession.setActionHandler('play', ()=> audio.play().catch(()=>{}));
+      navigator.mediaSession.setActionHandler('pause', ()=> audio.pause());
       navigator.mediaSession.setActionHandler('nexttrack', next);
       navigator.mediaSession.setActionHandler('previoustrack', prev);
       navigator.mediaSession.setActionHandler('seekto', d=>{ if(d.seekTime!=null) audio.currentTime=d.seekTime; });
@@ -772,7 +792,7 @@ $('play-all-btn')?.addEventListener('click', ()=>{ vibrate(8); const f=filteredT
 $('cache-btn')?.addEventListener('click', async()=>{
   if(!curTrackId) return toast('Play a track first');
   const tr=tracks.find(t=>t.id===curTrackId);
-  const url=publicUrl(tr.storage_path);
+  const url=await getSignedUrl(tr.storage_path);
   try{
     const c=await caches.open('tracks-v1');
     toast('Caching for offline...');

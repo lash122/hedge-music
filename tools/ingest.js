@@ -148,10 +148,10 @@ async function processQueue() {
       const size = buf.length;
       log(`  ↳ ${ (size/1024/1024).toFixed(2)} MB, uploading to tracks bucket...`);
 
-      // 3. Upload to Supabase Storage - owner folder for private RLS + extractor prefix
+      // 3. Upload to Supabase Storage - global shared (flat name), private bucket + signed URLs
       if(size > 100*1024*1024) throw new Error(`File too large ${ (size/1024/1024).toFixed(1)}MB >100MB`);
       const safeStorageName = `${safeExtractor}-${safeId}.mp3`;
-      const storagePath = job.owner_id ? `${job.owner_id}/${safeStorageName}` : safeStorageName;
+      const storagePath = safeStorageName;
       const { error: upErr } = await sb.storage.from('tracks').upload(storagePath, buf, { contentType: 'audio/mpeg', upsert: false });
       if (upErr) {
         if(upErr.message.includes('already exists') || upErr.message.includes('duplicate') || upErr.statusCode==='409') log(`  ↳ storage already exists, ok`);

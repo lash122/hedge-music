@@ -38,6 +38,13 @@
 
   <div id="dash" style="display:none">
     <div class="kpis" id="kpis"></div>
+    <div class="card" style="padding:14px;overflow:auto;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+        <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Pending approvals</h3>
+        <button id="refresh-pending" class="btn btn-ghost" style="padding:6px 10px">↺</button>
+      </div>
+      <table class="table"><thead><tr><th>Email</th><th>Created</th><th></th></tr></thead><tbody id="pending-body"><tr><td colspan="3" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+    </div>
     <div style="display:grid;grid-template-columns:1fr;gap:12px">
       <div class="card" style="padding:14px;overflow:auto">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
@@ -261,6 +268,25 @@ async function loadStats(){
     }
   }
 
+  // pending approvals
+  async function loadPending(){
+    const body=$('pending-body'); if(!body) return;
+    const { data, error } = await sb.rpc('get_pending_users');
+    if(error){ body.innerHTML=`<tr><td colspan="3" style="color:var(--danger)">${esc(error.message)}</td></tr>`; return; }
+    if(!data?.length) body.innerHTML=`<tr><td colspan="3" style="color:var(--text-tertiary)">No pending — all users approved</td></tr>`;
+    else body.innerHTML=data.map(u=>`<tr><td>${esc(u.email)}</td><td>${esc(new Date(u.created_at).toLocaleString())}</td><td><button class="btn btn-main" style="padding:4px 10px" data-approve="${esc(u.id)}">Approve</button></td></tr>`).join('');
+    body.querySelectorAll('[data-approve]').forEach(b=>{
+      b.addEventListener('click', async()=>{
+        const id=b.getAttribute('data-approve');
+        b.disabled=true; b.textContent='…';
+        const { error } = await sb.from('approved_users').insert({user_id:id, approved_by: currentUser?.id});
+        if(error) toast('Approve failed: '+error.message);
+        else { toast('Approved'); await loadPending(); await loadStats(); }
+        b.disabled=false; b.textContent='Approve';
+      });
+    });
+  }
+
   // queue health
   const qBody=$('queue-body');
   const { data: qrows } = await sb.from('ingest_queue').select('original_url,status,error,created_at').order('created_at',{ascending:false}).limit(20);
@@ -269,6 +295,7 @@ async function loadStats(){
     const st=r.status==='error'?`<span class="badge-err">error</span>`:`<span class="badge">${esc(r.status)}</span>`;
     return `<tr><td title="${esc(r.original_url)}">${esc(r.original_url.slice(0,38))}</td><td>${st}</td><td>${esc((r.error||'').slice(0,40))}</td><td>${esc(new Date(r.created_at).toLocaleString())}</td></tr>`;
   }).join('');
+  await loadPending();
 }
 
 async function init(){
@@ -280,6 +307,7 @@ async function init(){
 }
 sb.auth.onAuthStateChange(async(_,s)=>{ currentUser=s?.user||null; renderAuth(); const ok=await checkAdmin(); if(ok) await loadStats(); });
 $('refresh-btn')?.addEventListener('click', loadStats);
+$('refresh-pending')?.addEventListener('click', async()=>{ const b=$('refresh-pending'); if(b){ b.textContent='…'; } await (async()=>{ const {data}=await sb.rpc('get_pending_users'); const body=$('pending-body'); if(body && data) body.innerHTML = !data.length ? `<tr><td colspan="3" style="color:var(--text-tertiary)">No pending</td></tr>` : data.map(u=>`<tr><td>${esc(u.email)}</td><td>${esc(new Date(u.created_at).toLocaleString())}</td><td><button class="btn btn-main" style="padding:4px 10px" data-approve="${esc(u.id)}">Approve</button></td></tr>`).join(''); })(); if(b) b.textContent='↺'; });
 init();
 </script>
 </body>

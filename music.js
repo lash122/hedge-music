@@ -102,17 +102,41 @@ function redirectToLogin(){
   showAuth('login');
   toast('Private library — log in to continue');
 }
+async function isApproved(){
+  try{ const { data, error } = await sb.rpc('is_approved'); if(!error) return !!data; }catch{}
+  return true;
+}
 async function initAuth(){
   const {data:{session}}=await sb.auth.getSession();
   currentUser=session?.user||null;
   renderAuth();
-  if(currentUser){ await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]); }
+  if(currentUser){
+    const approved = await isApproved();
+    if(!approved){
+      queue=[]; playlists=[]; playlistTracks=[]; tracks=[];
+      $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon — you can browse after approval</small></div>`;
+      const qc=$('queue-count'); if(qc) qc.textContent='awaiting approval';
+      const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Awaiting approval</small>';
+      toast('Awaiting admin approval');
+      return;
+    }
+    await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]);
+  }
   else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to see your private library</small>'; $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in required</div><button id="gate-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`; setTimeout(()=>{ const b=$('gate-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); if(!sessionStorage.getItem('login-redirect')){ sessionStorage.setItem('login-redirect','1'); setTimeout(()=> redirectToLogin(), 400); } },0); }
 }
 sb.auth.onAuthStateChange(async (_event, session)=>{
   currentUser=session?.user||null;
   renderAuth();
-  if(currentUser){ authRedirectDone=false; sessionStorage.removeItem('login-redirect'); await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]); } else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; renderPlaylists(); renderTracks(); if(!authRedirectDone) setTimeout(()=> redirectToLogin(), 200); }
+  if(currentUser){
+    const approved = await isApproved();
+    if(!approved){
+      queue=[]; playlists=[]; playlistTracks=[]; tracks=[];
+      $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon</small></div>`;
+      toast('Awaiting admin approval');
+      return;
+    }
+    authRedirectDone=false; sessionStorage.removeItem('login-redirect'); await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]);
+  } else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; renderPlaylists(); renderTracks(); if(!authRedirectDone) setTimeout(()=> redirectToLogin(), 200); }
 });
 initAuth();
 
@@ -383,12 +407,14 @@ async function loadTracks(){
   }
   tracks = data||[];
   const tc=$('tracks-count'); if(tc) tc.textContent = tracks.length+' tracks';
-  // private library: enforce login gate
+  // private library: enforce login + approval gate
   if(!currentUser){
     const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in to see your tracks</div><button id="empty-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`;
     setTimeout(()=>{ const b=$('empty-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0);
     return;
   }
+  // check approval async — if not approved, loadTracks already gated in initAuth, but handle direct call
+  sb.rpc('is_approved').then(({data})=>{ if(!data){ const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon</small></div>`; } }).catch(()=>{});
   renderTracks();
 }
 

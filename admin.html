@@ -44,7 +44,7 @@
           <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Top tracks (plays/views)</h3>
           <button id="refresh-btn" class="btn btn-ghost" style="padding:6px 10px">↺ Refresh</button>
         </div>
-        <table class="table"><thead><tr><th>Track</th><th>Artist</th><th>Extractor</th><th>Plays</th><th>Views</th><th>Queues</th></tr></thead><tbody id="leader-body"><tr><td colspan="6" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+        <table class="table"><thead><tr><th>Track</th><th>Artist</th><th>Extractor</th><th>Plays</th><th>Views</th><th>Queues</th><th></th></tr></thead><tbody id="leader-body"><tr><td colspan="7" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="two-col">
         <div class="card" style="padding:14px;overflow:auto">
@@ -194,13 +194,38 @@ async function loadStats(){
   let rows=leader;
   if(e2){
     // fallback aggregate client-side from events + tracks
-    const { data: tracks } = await sb.from('tracks').select('id,title,artist,extractor').limit(200);
+    const { data: tracks } = await sb.from('tracks').select('id,title,artist,extractor,storage_path').limit(200);
     const { data: evs } = await sb.from('track_events').select('track_id,event').in('event',['play','view','queue']).limit(5000);
     const map={}; (evs||[]).forEach(r=>{ map[r.track_id]=map[r.track_id]||{plays:0,views:0,queues:0}; if(r.event==='play') map[r.track_id].plays++; if(r.event==='view') map[r.track_id].views++; if(r.event==='queue') map[r.track_id].queues++; });
     rows=(tracks||[]).map(t=>({...t, plays:map[t.id]?.plays||0, views:map[t.id]?.views||0, queues:map[t.id]?.queues||0})).sort((a,b)=>b.plays-a.plays).slice(0,20);
   }
-  if(!rows || !rows.length) lb.innerHTML=`<tr><td colspan="6" style="color:var(--text-tertiary)">No data yet — play a track to generate events.</td></tr>`;
-  else lb.innerHTML=rows.map(r=>`<tr><td title="${esc(r.title)}">${esc((r.title||'').slice(0,40))}</td><td>${esc((r.artist||'').slice(0,24))}</td><td>${esc(r.extractor||'')}</td><td>${esc(r.plays||0)}</td><td>${esc(r.views||0)}</td><td>${esc(r.queues||0)}</td></tr>`).join('');
+  if(!rows || !rows.length) lb.innerHTML=`<tr><td colspan="7" style="color:var(--text-tertiary)">No data yet — play a track to generate events.</td></tr>`;
+  else lb.innerHTML=rows.map(r=>`<tr><td title="${esc(r.title)}">${esc((r.title||'').slice(0,40))}</td><td>${esc((r.artist||'').slice(0,24))}</td><td>${esc(r.extractor||'')}</td><td>${esc(r.plays||0)}</td><td>${esc(r.views||0)}</td><td>${esc(r.queues||0)}</td><td><button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0;border-color:#3a2a2a;background:#1f1414" data-del="${esc(r.id)}" data-path="${esc(r.storage_path||'')}" data-title="${esc((r.title||'track').replace(/"/g,'&quot;'))}">✕ Delete</button></td></tr>`).join('');
+  // bind delete handlers
+  lb.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.addEventListener('click', async()=>{
+      const id=btn.getAttribute('data-del');
+      const storagePath=btn.getAttribute('data-path');
+      const title=btn.getAttribute('data-title')||'this track';
+      if(!confirm(`Delete "${title}"?\n\nThis removes DB row + MP3 file from tracks bucket. Playlist entries cascade. Cannot undo.`)) return;
+      btn.disabled=true; btn.textContent='…';
+      try{
+        // audit log (optional)
+        try{ await sb.from('deleted_tracks').insert({id, title, storage_path: storagePath, deleted_by: currentUser?.id}); }catch{}
+        if(storagePath){
+          const { error: sErr } = await sb.storage.from('tracks').remove([storagePath]);
+          if(sErr) console.warn('storage delete', sErr.message);
+        }
+        const { error } = await sb.from('tracks').delete().eq('id', id);
+        if(error) throw error;
+        toast('Deleted '+title);
+        await loadStats();
+      }catch(e){
+        toast('Delete failed: '+e.message);
+        btn.disabled=false; btn.textContent='✕ Delete';
+      }
+    });
+  });
 
   // recent events — try admin view with email, fallback to raw
   const evBody=$('events-body');

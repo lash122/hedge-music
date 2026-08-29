@@ -127,6 +127,7 @@ function logEvent(event, trackId, meta){
     const payload={ event, meta: meta||null };
     if(trackId) payload.track_id=trackId;
     if(currentUser?.id) payload.user_id=currentUser.id;
+    if(currentUser?.email) { payload.meta = {...(payload.meta||{}), email: currentUser.email }; }
     sb.from('track_events').insert(payload).then(()=>{},()=>{});
   }catch{}
 }

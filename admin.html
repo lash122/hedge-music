@@ -202,21 +202,38 @@ async function loadStats(){
   if(!rows || !rows.length) lb.innerHTML=`<tr><td colspan="6" style="color:var(--text-tertiary)">No data yet — play a track to generate events.</td></tr>`;
   else lb.innerHTML=rows.map(r=>`<tr><td title="${esc(r.title)}">${esc((r.title||'').slice(0,40))}</td><td>${esc((r.artist||'').slice(0,24))}</td><td>${esc(r.extractor||'')}</td><td>${esc(r.plays||0)}</td><td>${esc(r.views||0)}</td><td>${esc(r.queues||0)}</td></tr>`).join('');
 
-  // recent events
+  // recent events — try admin view with email, fallback to raw
   const evBody=$('events-body');
-  const { data: evs2, error: e3 } = await sb.from('track_events').select('created_at,event,track_id,user_id,meta').order('created_at',{ascending:false}).limit(30);
+  let evs2=null, e3=null;
+  let useView=false;
+  {
+    const r=await sb.from('v_admin_events').select('created_at,event,track_id,email,title').order('created_at',{ascending:false}).limit(30);
+    if(!r.error){ evs2=r.data; useView=true; }
+    else {
+      const r2=await sb.from('track_events').select('created_at,event,track_id,user_id,meta').order('created_at',{ascending:false}).limit(30);
+      evs2=r2.data; e3=r2.error;
+    }
+  }
   if(e3) evBody.innerHTML=`<tr><td colspan="4" style="color:var(--danger)">${esc(e3.message)} — run supabase-admin-analytics.sql</td></tr>`;
   else if(!evs2?.length) evBody.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">No events yet</td></tr>`;
   else {
-    // lookup titles
-    const ids=[...new Set(evs2.map(e=>e.track_id).filter(Boolean))].slice(0,30);
-    let titleMap={};
-    if(ids.length){ const {data:ts}=await sb.from('tracks').select('id,title').in('id', ids); (ts||[]).forEach(t=>titleMap[t.id]=t.title); }
-    evBody.innerHTML=evs2.map(e=>{
-      const when=new Date(e.created_at).toLocaleString();
-      const title=e.track_id ? (titleMap[e.track_id]|| e.track_id.slice(0,8)) : (e.meta?.q|| e.meta?.url||'—');
-      return `<tr><td>${esc(when)}</td><td><span class="badge">${esc(e.event)}</span></td><td title="${esc(title)}">${esc(String(title).slice(0,32))}</td><td>${esc((e.user_id||'anon').slice(0,8))}</td></tr>`;
-    }).join('');
+    if(useView){
+      evBody.innerHTML=evs2.map(e=>{
+        const when=new Date(e.created_at).toLocaleString();
+        const title=e.title || (e.track_id? e.track_id.slice(0,8) : '—');
+        return `<tr><td>${esc(when)}</td><td><span class="badge">${esc(e.event)}</span></td><td title="${esc(title)}">${esc(String(title).slice(0,32))}</td><td title="${esc(e.email||'anon')}">${esc((e.email||'anon').slice(0,28))}</td></tr>`;
+      }).join('');
+    } else {
+      const ids=[...new Set(evs2.map(e=>e.track_id).filter(Boolean))].slice(0,30);
+      let titleMap={};
+      if(ids.length){ const {data:ts}=await sb.from('tracks').select('id,title').in('id', ids); (ts||[]).forEach(t=>titleMap[t.id]=t.title); }
+      evBody.innerHTML=evs2.map(e=>{
+        const when=new Date(e.created_at).toLocaleString();
+        const title=e.track_id ? (titleMap[e.track_id]|| e.track_id.slice(0,8)) : (e.meta?.q|| e.meta?.url||'—');
+        const email=e.meta?.email || (e.user_id||'anon').slice(0,8);
+        return `<tr><td>${esc(when)}</td><td><span class="badge">${esc(e.event)}</span></td><td title="${esc(title)}">${esc(String(title).slice(0,32))}</td><td title="${esc(email)}">${esc(String(email).slice(0,28))}</td></tr>`;
+      }).join('');
+    }
   }
 
   // queue health

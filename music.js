@@ -146,11 +146,16 @@ function publicUrl(storagePath){
   // fallback for legacy public bucket; private bucket uses signed URL via getSignedUrl
   return `${SUPABASE_URL}/storage/v1/object/public/tracks/${storagePath.split('/').map(encodeURIComponent).join('/')}`;
 }
-async function getSignedUrl(storagePath){
+const urlCache = new Map();
+async function getSignedUrl(storagePath, force=false){
   if(!storagePath) return '';
+  if(!force){
+    const hit = urlCache.get(storagePath);
+    if(hit && Date.now()-hit.ts < 55*60*1000) return hit.url;
+  }
   try{
     const { data, error } = await sb.storage.from('tracks').createSignedUrl(storagePath, 3600);
-    if(!error && data?.signedUrl) return data.signedUrl;
+    if(!error && data?.signedUrl){ urlCache.set(storagePath,{url:data.signedUrl, ts:Date.now()}); return data.signedUrl; }
   }catch{}
   // fallback to publicUrl for legacy public bucket during migration
   return publicUrl(storagePath);
@@ -392,20 +397,46 @@ async function loadQueue(){
 }
 
 // --- Tracks ---
+const TRACK_PAGE = 50;
+let tracksPage = 0;
+let tracksAllLoaded = false;
+let tracksLoading = false;
 function showSkeleton(){
   const el=$('tracks-list'); if(!el) return;
   el.innerHTML = Array(3).fill(0).map(()=> `<div class="track skeleton" style="pointer-events:none"><div style="width:46px;height:46px;border-radius:6px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div>`).join('');
 }
-async function loadTracks(){
-  showSkeleton();
-  const { data, error } = await sb.from('tracks').select('*').order('created_at', {ascending:false}).limit(500);
+function trackSentinel(){
+  let el=$('track-sentinel');
+  if(!el){
+    el=document.createElement('div');
+    el.id='track-sentinel';
+    el.style.height='1px';
+    const list=$('tracks-list'); if(list) list.appendChild(el);
+    new IntersectionObserver((entries)=>{
+      entries.forEach(en=>{ if(en.isIntersecting && !tracksAllLoaded && !tracksLoading && currentUser) loadTracks(false); });
+    }).observe(el);
+  }
+}
+async function loadTracks(reset=true){
+  if(tracksLoading) return;
+  if(!reset && tracksAllLoaded) return;
+  tracksLoading=true;
+  if(reset){ tracksPage=0; tracksAllLoaded=false; tracks=[]; showSkeleton(); }
+  const start = tracksPage*TRACK_PAGE;
+  const { data, error } = await sb.from('tracks')
+    .select('id,original_url,extractor,extractor_id,title,artist,thumbnail_url,storage_path,duration_sec,file_size,created_at')
+    .order('created_at', {ascending:false}).range(start, start+TRACK_PAGE-1);
+  tracksLoading=false;
   if(error){
     console.warn('tracks load', error.message);
     if(error.message.includes('does not exist')) $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">♪</div><div>Run <code>supabase-music.sql</code> in Supabase SQL Editor, then queue a URL.</div></div>';
     else $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div>Failed to load tracks</div></div>';
     return;
   }
-  tracks = data||[];
+  if(!data || !data.length) tracksAllLoaded=true;
+  if(reset) tracks = data||[];
+  else tracks = [...tracks, ...(data||[])];
+  tracksPage++;
   const tc=$('tracks-count'); if(tc) tc.textContent = tracks.length+' tracks';
   // private library: enforce login + approval gate
   if(!currentUser){
@@ -416,6 +447,7 @@ async function loadTracks(){
   // check approval async — if not approved, loadTracks already gated in initAuth, but handle direct call
   sb.rpc('is_approved').then(({data})=>{ if(!data){ const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon</small></div>`; } }).catch(()=>{});
   renderTracks();
+  trackSentinel();
 }
 
 function filteredTracks(){
@@ -786,10 +818,22 @@ function setRepeat(v){
 }
 $('repeat-btn')?.addEventListener('click', ()=>{ vibrate(8); setRepeat(!repeat); toast(repeat?'Repeat on':'Repeat off'); });
 $('repeat-btn-ps')?.addEventListener('click', ()=>{ vibrate(8); setRepeat(!repeat); toast(repeat?'Repeat on':'Repeat off'); });
+function patchPlayingRow(){
+  document.querySelectorAll('.track.playing').forEach(n=>{ if(n.dataset.id!==curTrackId) n.classList.remove('playing','is-playing'); });
+  const row = document.querySelector(`.track[data-id="${CSS.escape(String(curTrackId||''))}"]`);
+  if(row){
+    row.classList.add('playing');
+    row.classList.toggle('is-playing', isPlaying);
+    const btn=row.querySelector('[data-play]');
+    if(btn) btn.textContent = isPlaying ? '⏸' : '▶';
+    const eq=row.querySelector('.t-eq'); if(eq) eq.style.display = isPlaying ? 'flex' : 'none';
+    const bar=row.querySelector('.t-progress'); if(bar) bar.style.display = isPlaying ? 'block' : 'none';
+  }
+}
 audio.addEventListener('ended', ()=>{ if(repeat) audio.play().catch(()=>{}); else next(); });
-audio.addEventListener('play', ()=>{ isPlaying=true; syncPlayButtons(); renderTracks(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='playing';}catch{} });
-audio.addEventListener('pause', ()=>{ isPlaying=false; syncPlayButtons(); renderTracks(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='paused';}catch{} });
-audio.addEventListener('error', ()=>{ toast('Audio load error — file may be missing'); isPlaying=false; syncPlayButtons(); });
+audio.addEventListener('play', ()=>{ isPlaying=true; syncPlayButtons(); patchPlayingRow(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='playing';}catch{} });
+audio.addEventListener('pause', ()=>{ isPlaying=false; syncPlayButtons(); patchPlayingRow(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='paused';}catch{} });
+audio.addEventListener('error', async ()=>{ isPlaying=false; syncPlayButtons(); const tr=tracks.find(t=>t.id===curTrackId); if(tr && currentUser && tr.storage_path){ urlCache.delete(tr.storage_path); const u=await getSignedUrl(tr.storage_path,true); if(u && u!==audio.src){ audio.src=u; audio.play().catch(()=>{ toast('Audio load error — file may be missing'); }); return; } } toast('Audio load error — file may be missing'); });
 function onTimeUpdate(){
   if(!isFinite(audio.duration)) return;
   const cur=fmtTime(audio.currentTime), dur=fmtTime(audio.duration);

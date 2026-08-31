@@ -168,16 +168,35 @@ function requireAuth(){
   return false;
 }
 function isMobile(){ return window.innerWidth<=860; }
-// --- Analytics (additive, fire-and-forget, never blocks UI) ---
+function canonicalUrl(u){
+  try{
+    const url=new URL(u);
+    url.hash='';
+    if(url.hostname==='youtu.be'){ url.hostname='www.youtube.com'; const id=url.pathname.replace('/',''); url.pathname='/watch'; url.searchParams.set('v', id); }
+    ['t','si','st','utm_source','utm_medium','utm_campaign'].forEach(p=>url.searchParams.delete(p));
+    url.searchParams.sort();
+    return url.toString();
+  }catch{ return u; }
+}
+// --- Analytics (buffered, batched, fire-and-forget) ---
+const eventQueue=[];
 function logEvent(event, trackId, meta){
   try{
     const payload={ event, meta: meta||null };
     if(trackId) payload.track_id=trackId;
     if(currentUser?.id) payload.user_id=currentUser.id;
     if(currentUser?.email) { payload.meta = {...(payload.meta||{}), email: currentUser.email }; }
-    sb.from('track_events').insert(payload).then(()=>{},()=>{});
+    eventQueue.push(payload);
+    if(eventQueue.length>=20) flushEvents();
   }catch{}
 }
+function flushEvents(){
+  if(!eventQueue.length) return;
+  const batch=eventQueue.splice(0, eventQueue.length);
+  try{ sb.from('track_events').insert(batch).then(()=>{},()=>{}); }catch{}
+}
+setInterval(flushEvents, 5000);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushEvents(); });
 
 // --- Mobile Tabs ---
 function setMobileTab(tab){
@@ -356,10 +375,14 @@ async function queueNow(){
   $('queue-btn').disabled=true;
   $('queue-status').textContent='Queuing...'; $('queue-status').className='status';
   try{
-    const payload={ original_url: url };
+    const canon = canonicalUrl(url);
+    const payload={ original_url: url, canonical_url: canon };
     if(currentUser) payload.owner_id=currentUser.id;
     const { error } = await sb.from('ingest_queue').insert(payload);
-    if(error) throw error;
+    if(error){
+      if(error.code==='23505'){ $('queue-status').textContent='Already queued (pending)'; $('queue-status').className='status ok'; toast('Already in queue'); await loadQueue(); return; }
+      throw error;
+    }
     $('yt-url').value='';
     $('queue-status').textContent='✓ Queued as pending. Run laptop: node tools/ingest.js --watch';
     $('queue-status').className='status ok';
@@ -965,7 +988,8 @@ try{
 
 // --- Init ---
 loadTracks(); loadQueue(); loadPlaylists();
-setInterval(()=>{ loadQueue(); }, 15000);
+// realtime push is primary (see channel above); refresh queue only when tab becomes visible
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && currentUser) loadQueue(); });
 
 // SW — explicit scope + error log for Render vs GH Pages
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', {scope:'./'}).catch(e=>console.warn('SW fail',e));

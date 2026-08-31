@@ -199,6 +199,7 @@ setInterval(flushEvents, 5000);
 document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') flushEvents(); });
 
 // --- Mobile Tabs ---
+const MOBILE_TABS=['library','playlists','likes'];
 function setMobileTab(tab){
   document.body.setAttribute('data-mobile-tab', tab);
   document.querySelectorAll('.bottom-tabs .tab').forEach(b=>{
@@ -206,42 +207,33 @@ function setMobileTab(tab){
     b.classList.toggle('active', active);
     b.setAttribute('aria-selected', active?'true':'false');
   });
-  if(tab==='queue'){
-    setIngest(true, true);
-  }
   try{ localStorage.setItem('hedge-tab', tab); }catch{}
   if(location.hash!=='#'+tab) history.replaceState(null,'','#'+tab);
+  updateListHead();
+  renderTracks();
 }
 function initTabs(){
   const tabs=document.querySelectorAll('.bottom-tabs .tab');
   tabs.forEach(b=> b.addEventListener('click', ()=>{
     vibrate(8);
     setMobileTab(b.dataset.tab);
-    if(b.dataset.tab!=='queue') setIngest(false, true);
   }));
-  // default from hash / localStorage
+  // default from hash / localStorage ('queue' legacy -> library)
   let initial = location.hash.replace('#','') || (localStorage.getItem('hedge-tab')||'library');
-  if(!['library','playlists','queue'].includes(initial)) initial='library';
+  if(!MOBILE_TABS.includes(initial)) initial='library';
   setMobileTab(initial);
   window.addEventListener('hashchange', ()=>{
     const h=location.hash.replace('#','');
-    if(['library','playlists','queue'].includes(h)) setMobileTab(h);
+    if(MOBILE_TABS.includes(h)) setMobileTab(h);
   });
 }
 initTabs();
 
-// --- Collapsible ingest / Bottom Sheet ---
-function setIngest(open, fromTab=false){
+// --- Collapsible ingest / Bottom Sheet (queue is always a sheet now, FAB opens it) ---
+function setIngest(open){
   const panel=$('ingest-panel');
   const overlay=$('sheet-overlay');
   const willOpen = open ?? panel.classList.contains('collapsed');
-  // on mobile queue tab, ingest is inline not sheet -> don't toggle collapsed behavior
-  if(isMobile() && document.body.getAttribute('data-mobile-tab')==='queue'){
-    panel.classList.remove('collapsed');
-    panel.setAttribute('aria-hidden','false');
-    if(overlay) overlay.style.display='none';
-    return;
-  }
   panel.classList.toggle('collapsed', !willOpen);
   panel.setAttribute('aria-hidden', willOpen ? 'false' : 'true');
   const btn=$('toggle-ingest');
@@ -250,12 +242,6 @@ function setIngest(open, fromTab=false){
     overlay.style.display = willOpen && isMobile() ? 'block' : 'none';
   }
   if(willOpen) setTimeout(()=>$('yt-url')?.focus(), 180);
-  if(!fromTab && willOpen && isMobile()){
-    setMobileTab('queue');
-  }
-  if(!willOpen && isMobile() && document.body.getAttribute('data-mobile-tab')==='queue' && !fromTab){
-    setMobileTab('library');
-  }
 }
 $('toggle-ingest')?.addEventListener('click', ()=> setIngest());
 $('close-ingest')?.addEventListener('click', ()=> setIngest(false));
@@ -387,7 +373,6 @@ async function queueNow(){
     $('queue-status').textContent='✓ Queued as pending. Run laptop: node tools/ingest.js --watch';
     $('queue-status').className='status ok';
     toast('Queued! Run laptop ingest');
-    if(isMobile()) setMobileTab('queue');
     await loadQueue();
     logEvent('queue', null, { url: url.slice(0,120) });
   }catch(e){
@@ -400,7 +385,7 @@ async function queueNow(){
 }
 
 async function loadQueue(){
-  if(!currentUser){ const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const badge=$('queue-badge'); if(badge) badge.style.display='none'; const dot=$('tab-queue-dot'); if(dot) dot.style.display='none'; const pl=$('pending-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to queue and see your pending uploads</small>'; return; }
+  if(!currentUser){ const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const badge=$('queue-badge'); if(badge) badge.style.display='none'; const dot=$('fab-queue-dot'); if(dot) dot.style.display='none'; const pl=$('pending-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to queue and see your pending uploads</small>'; return; }
   const { data, error } = await sb.from('ingest_queue').select('*').order('created_at', {ascending:false}).limit(50);
   if(error){ console.warn('queue load', error.message); return; }
   queue = data||[];
@@ -408,7 +393,7 @@ async function loadQueue(){
   const qc=$('queue-count'); if(qc) qc.textContent = pending.length+' pending';
   const badge = $('queue-badge');
   if(badge){ if(pending.length){ badge.style.display=''; badge.textContent = pending.length+' queued'; } else badge.style.display='none'; }
-  const dot=$('tab-queue-dot'); if(dot) dot.style.display = pending.length ? 'inline-block' : 'none';
+  const dot=$('fab-queue-dot'); if(dot) dot.style.display = pending.length ? 'block' : 'none';
   const pl=$('pending-list');
   if(pl){
     pl.innerHTML = queue.slice(0,12).map(q=>{
@@ -475,6 +460,10 @@ async function loadTracks(reset=true){
 
 function filteredTracks(){
   let t = tracks;
+  // mobile Likes tab: only liked songs
+  if(isMobile() && document.body.getAttribute('data-mobile-tab')==='likes'){
+    t = t.filter(x=>likes.has(x.id));
+  }
   if(activePlaylistId){
     const ids = new Set(playlistTracks.filter(pt=>pt.playlist_id===activePlaylistId).map(pt=>pt.track_id));
     t = t.filter(x=>ids.has(x.id));
@@ -506,7 +495,12 @@ function renderTracks(){
   const el=$('tracks-list');
   if(!el) return;
   if(!list.length){
-    const isFiltered = activePlaylistId || filter!=='all' || searchQ;
+    const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
+    const isFiltered = isLikesView || activePlaylistId || filter!=='all' || searchQ;
+    if(isLikesView){
+      el.innerHTML=`<div class="empty"><div class="empty-icon">♥</div><div>No liked songs yet</div><small style="color:var(--text-tertiary)">Tap the ♥ on any track and it shows up here</small></div>`;
+      return;
+    }
     if(isFiltered){
       el.innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><div>No tracks match</div><small style="color:var(--text-tertiary)">Try clearing search or filter</small><button id="clear-filters-btn" class="btn btn-ghost" style="margin-top:8px">Clear filters</button></div>`;
       setTimeout(()=>{ const b=$('clear-filters-btn'); if(b) b.addEventListener('click', ()=>{ const s=$('search'); if(s) s.value=''; searchQ=''; filter='all'; activePlaylistId=null; document.querySelectorAll('.chip').forEach(c=>{c.classList.remove('active'); c.setAttribute('aria-selected','false')}); const all=document.querySelector('[data-filter=all]'); if(all){all.classList.add('active'); all.setAttribute('aria-selected','true')} updateListHead(); renderPlaylists(); renderTracks(); updateSearchClear(); }); }, 0);
@@ -731,7 +725,8 @@ function updateListHead(){
     back.style.display='';
     titleEl.style.display='none';
   } else {
-    titleEl.textContent='All tracks';
+    const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
+    titleEl.textContent = isLikesView ? '♥ Liked' : 'All tracks';
     titleEl.style.display='';
     if(back) back.style.display='none';
   }

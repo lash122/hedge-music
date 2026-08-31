@@ -118,9 +118,10 @@
     </main>
   </div>
 
-  <!-- Mobile FAB -->
+  <!-- Mobile FAB — sole entry to queue sheet, dot = pending jobs -->
   <button id="fab-queue" class="fab" aria-label="Queue new track">
     <svg width="24" height="24"><use href="#i-plus"/></svg>
+    <span id="fab-queue-dot" class="fab-dot" style="display:none"></span>
   </button>
 
   <!-- Bottom Tabs (phone only) -->
@@ -131,8 +132,8 @@
     <button class="tab" data-tab="playlists">
       <span class="tab-ico"><svg width="20" height="20"><use href="#i-list"/></svg></span><span class="tab-label">Playlists</span>
     </button>
-    <button class="tab" data-tab="queue">
-      <span class="tab-ico"><svg width="20" height="20"><use href="#i-queue"/></svg></span><span class="tab-label">Queue</span><span id="tab-queue-dot" class="tab-dot" style="display:none"></span>
+    <button class="tab" data-tab="likes">
+      <span class="tab-ico"><svg width="20" height="20"><use href="#i-heart"/></svg></span><span class="tab-label">Likes</span>
     </button>
   </nav>
 

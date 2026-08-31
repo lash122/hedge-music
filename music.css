@@ -356,17 +356,13 @@ a{color:var(--text)}
   .ingest-row .btn-main{width:100%;padding:14px;justify-content:center}
   .layout{grid-template-columns:1fr;gap:12px;padding:0 12px 12px;margin-top:12px}
   .sidebar{gap:12px}
-   /* tab panels — only show active tab */
+   /* tab panels — only show active tab (likes reuses main track list) */
   .card[data-mobile-panel]{display:none}
   .main{display:none}
   body[data-mobile-tab="library"] .card[data-mobile-panel="library"]{display:block}
   body[data-mobile-tab="library"] .main[data-mobile-panel="library"]{display:block}
   body[data-mobile-tab="playlists"] .card[data-mobile-panel="playlists"]{display:block}
-  body[data-mobile-tab="queue"] .ingest{transform:translateY(0);position:static;max-height:none;border-radius:6px}
-  body[data-mobile-tab="queue"] .ingest.collapsed{transform:none;pointer-events:auto;opacity:1}
-  body[data-mobile-tab="queue"] .ingest .sheet-handle{display:none}
-  body[data-mobile-tab="queue"] #sheet-overlay{display:none !important}
-  body[data-mobile-tab="queue"] .sidebar, body[data-mobile-tab="queue"] .main{display:none}
+  body[data-mobile-tab="likes"] .main[data-mobile-panel="library"]{display:block}
 
   .filters{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:4px}
   .filters::-webkit-scrollbar{display:none}
@@ -427,7 +423,12 @@ a{color:var(--text)}
     font-size:24px;line-height:1;cursor:pointer;z-index:31;
   }
   .fab:active{transform:scale(.96)}
-  body[data-mobile-tab="queue"] .fab{display:none}
+  .fab-dot{
+    position:absolute;top:6px;right:6px;
+    width:10px;height:10px;border-radius:50%;
+    background:#ff5b5b;border:2px solid var(--accent);
+    display:none;
+  }
 
     /* phone: compact card, no excessive empty — body+layout padding clears FAB/player */
   .tracks{padding-bottom:12px}

@@ -13,6 +13,8 @@ function vibrate(p=10){ try{ navigator.vibrate&&navigator.vibrate(p);}catch{} }
 
 // --- State ---
 let tracks = [];
+let popularSort = false;      // 🔥 sort by plays (get_popular_tracks RPC)
+let popularCache = null;      // Map trackId -> plays, fetched once per session
 let queue = [];
 let playlists = [];
 let playlistTracks = [];
@@ -475,8 +477,30 @@ function filteredTracks(){
     const q=searchQ.toLowerCase();
     t = t.filter(x=> (x.title||'').toLowerCase().includes(q) || (x.artist||'').toLowerCase().includes(q) || (x.extractor||'').toLowerCase().includes(q));
   }
+  // 🔥 popular sort: order by plays (falls back to newest when no plays)
+  if(popularSort) t = [...t].sort((a,b)=>((popularCache?.get(b.id))||0)-((popularCache?.get(a.id))||0));
   return t;
 }
+
+// --- Popular (plays from track_events via gated RPC) ---
+async function loadPopular(){
+  if(!currentUser) return;
+  try{
+    const { data, error } = await sb.rpc('get_popular_tracks', { p_limit: 500, p_offset: 0 });
+    if(error){ console.warn('popular', error.message); return; }
+    popularCache = new Map((data||[]).map(r=>[r.id, r.plays]));
+    renderTracks();
+  }catch(e){ console.warn('popular', e.message); }
+}
+$('sort-popular-btn')?.addEventListener('click', async()=>{
+  vibrate(8);
+  popularSort = !popularSort;
+  const btn=$('sort-popular-btn');
+  if(btn){ btn.classList.toggle('btn-main', popularSort); btn.classList.toggle('btn-ghost', !popularSort); btn.textContent = popularSort ? '🔥 On' : '🔥 Popular'; }
+  if(popularSort && !popularCache) await loadPopular();
+  updateListHead(); renderTracks();
+  toast(popularSort ? 'Sorted by plays' : 'Newest first');
+});
 
 async function removeFromPlaylist(pid, tid){
   if(!pid || !tid) return;
@@ -516,7 +540,9 @@ function renderTracks(){
     const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:64px;height:64px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`;
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
-    const meta = [esc(tr.artist||tr.extractor||''), esc(tr.extractor||''), dur, size].filter(Boolean).join(' · ');
+    const plays = popularCache?.get(tr.id) || 0;
+    const playBadge = popularSort && plays ? `▶ ${plays}` : '';
+    const meta = [esc(tr.artist||tr.extractor||''), esc(tr.extractor||''), playBadge, dur, size].filter(Boolean).join(' · ');
     const progress = isCur && isFinite(audio.duration) && audio.duration ? Math.round(audio.currentTime/audio.duration*100) : 0;
     const liked=isLiked(tr.id);
     return `<div class="track ${playingClass}" data-id="${esc(tr.id)}">
@@ -726,7 +752,7 @@ function updateListHead(){
     titleEl.style.display='none';
   } else {
     const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
-    titleEl.textContent = isLikesView ? '♥ Liked' : 'All tracks';
+    titleEl.textContent = isLikesView ? '♥ Liked' : (popularSort ? '🔥 Popular' : 'All tracks');
     titleEl.style.display='';
     if(back) back.style.display='none';
   }
@@ -970,7 +996,7 @@ document.querySelectorAll('.chip').forEach(c=> c.addEventListener('click', ()=>{
   c.classList.add('active'); c.setAttribute('aria-selected','true');
   filter=c.dataset.filter; renderTracks();
 }));
-$('refresh-btn')?.addEventListener('click', async()=>{ await Promise.all([loadTracks(), loadQueue(), loadPlaylists()]); toast('Refreshed'); });
+$('refresh-btn')?.addEventListener('click', async()=>{ await Promise.all([loadTracks(), loadQueue(), loadPlaylists()]); popularCache=null; if(popularSort) await loadPopular(); toast('Refreshed'); });
 
 // --- Realtime ---
 try{

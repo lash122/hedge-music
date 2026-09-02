@@ -420,6 +420,7 @@ const TRACK_PAGE = 50;
 let tracksPage = 0;
 let tracksAllLoaded = false;
 let tracksLoading = false;
+let tracksEpoch = 0; // bumps on every loadTracks call; in-flight stale responses are discarded
 function showSkeleton(){
   const el=$('tracks-list'); if(!el) return;
   el.innerHTML = Array(3).fill(0).map(()=> `<div class="track skeleton" style="pointer-events:none"><div style="width:46px;height:46px;border-radius:6px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div>`).join('');
@@ -437,6 +438,7 @@ function trackSentinel(){
   }
 }
 async function loadTracks(reset=true){
+  const epoch = ++tracksEpoch;              // supersede any in-flight responses
   if(tracksLoading) return;
   if(!reset && tracksAllLoaded) return;
   tracksLoading=true;
@@ -444,8 +446,11 @@ async function loadTracks(reset=true){
   const start = tracksPage*TRACK_PAGE;
   const { data, error } = await sb.from('tracks')
     .select('id,original_url,extractor,extractor_id,title,artist,thumbnail_url,storage_path,duration_sec,file_size,created_at')
-    .order('created_at', {ascending:false}).range(start, start+TRACK_PAGE-1);
+    .order('created_at', {ascending:false})
+    .order('id', {ascending:false})         // stable tiebreaker — same row can't land on 2 pages
+    .range(start, start+TRACK_PAGE-1);
   tracksLoading=false;
+  if(epoch !== tracksEpoch) return;         // a newer load/reset started — discard this stale response
   if(error){
     console.warn('tracks load', error.message);
     if(error.message.includes('does not exist')) $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">♪</div><div>Run <code>supabase-music.sql</code> in Supabase SQL Editor, then queue a URL.</div></div>';
@@ -454,7 +459,10 @@ async function loadTracks(reset=true){
   }
   if(!data || !data.length) tracksAllLoaded=true;
   if(reset) tracks = data||[];
-  else tracks = [...tracks, ...(data||[])];
+  else{
+    const known = new Set(tracks.map(t=>t.id));
+    tracks = [...tracks, ...(data||[]).filter(t=>!known.has(t.id))]; // deduped merge — no repeats on races/edge ties
+  }
   tracksPage++;
   const tc=$('tracks-count'); if(tc) tc.textContent = tracks.length+' tracks';
   // private library: enforce login + approval gate
@@ -506,7 +514,9 @@ function filteredTracks(){
   }
   // 🔥 popular sort: order by plays (falls back to newest when no plays)
   if(popularSort) t = [...t].sort((a,b)=>((popularCache?.get(b.id))||0)-((popularCache?.get(a.id))||0));
-  return t;
+  // safety net: never emit duplicate rows regardless of merge path
+  const seen = new Set();
+  return t.filter(x=>{ if(seen.has(x.id)) return false; seen.add(x.id); return true; });
 }
 
 // --- Popular (plays from track_events via gated RPC) ---

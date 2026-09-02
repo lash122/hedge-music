@@ -438,18 +438,17 @@ function trackSentinel(){
   }
 }
 async function loadTracks(reset=true){
-  const epoch = ++tracksEpoch;              // supersede any in-flight responses
-  if(tracksLoading) return;
-  if(!reset && tracksAllLoaded) return;
+  if(!reset && (tracksLoading || tracksAllLoaded)) return; // page fetch: skip while one is in flight — observer retries
+  const epoch = ++tracksEpoch;   // this call supersedes any in-flight response (reset beats stale page)
   tracksLoading=true;
   if(reset){ tracksPage=0; tracksAllLoaded=false; tracks=[]; showSkeleton(); }
+  try{
   const start = tracksPage*TRACK_PAGE;
   const { data, error } = await sb.from('tracks')
     .select('id,original_url,extractor,extractor_id,title,artist,thumbnail_url,storage_path,duration_sec,file_size,created_at')
     .order('created_at', {ascending:false})
     .order('id', {ascending:false})         // stable tiebreaker — same row can't land on 2 pages
     .range(start, start+TRACK_PAGE-1);
-  tracksLoading=false;
   if(epoch !== tracksEpoch) return;         // a newer load/reset started — discard this stale response
   if(error){
     console.warn('tracks load', error.message);
@@ -474,6 +473,7 @@ async function loadTracks(reset=true){
   // check approval async — if not approved, loadTracks already gated in initAuth, but handle direct call
   sb.rpc('is_approved').then(({data})=>{ if(!data){ const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon</small></div>`; } }).catch(()=>{});
   renderTracks();
+  }finally{ tracksLoading=false; }
 }
 
 // Pagination guard: playlist may reference tracks beyond loaded pages — fetch missing by id

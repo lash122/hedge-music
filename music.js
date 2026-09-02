@@ -562,7 +562,7 @@ function renderTracks(){
         <div class="t-sub">${meta}</div>
       </div>
       <div class="t-actions">
-        <button class="mini play-mini ${isCur && isPlaying?'playing':''}" data-play="${esc(tr.id)}" aria-label="Play"><svg width="14" height="14" class="i-play-icon"><use href="#i-play"/></svg><svg width="14" height="14" class="i-pause-icon" style="display:none"><use href="#i-pause"/></svg></button>
+        <button class="mini play-mini ${isCur && isPlaying?'playing':''}" data-play="${esc(tr.id)}" aria-label="Play"><svg width="14" height="14" class="i-play-icon"><use href="#i-play"/></svg><svg width="14" height="14" class="i-pause-icon"><use href="#i-pause"/></svg></button>
         <button class="like-btn ${liked?'liked':''}" data-like="${esc(tr.id)}" aria-label="Like"><svg width="18" height="18"><use href="${liked ? '#i-heart-filled' : '#i-heart'}"/></svg></button>
         <button class="track-more" data-more="${esc(tr.id)}" aria-label="More">⋯</button>
       </div>

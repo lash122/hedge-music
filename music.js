@@ -466,7 +466,24 @@ async function loadTracks(reset=true){
   // check approval async — if not approved, loadTracks already gated in initAuth, but handle direct call
   sb.rpc('is_approved').then(({data})=>{ if(!data){ const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon</small></div>`; } }).catch(()=>{});
   renderTracks();
-  trackSentinel();
+}
+
+// Pagination guard: playlist may reference tracks beyond loaded pages — fetch missing by id
+const _fetchedPlaylistIds = new Set();
+async function ensurePlaylistTracksLoaded(ids){
+  if(!ids?.length) return;
+  const missing = ids.filter(id => !tracks.some(t=>t.id===id) && !_fetchedPlaylistIds.has(id));
+  if(!missing.length) return;
+  missing.forEach(id=>_fetchedPlaylistIds.add(id));
+  try{
+    const { data } = await sb.from('tracks')
+      .select('id,original_url,extractor,extractor_id,title,artist,thumbnail_url,storage_path,duration_sec,file_size,created_at')
+      .in('id', missing.slice(0,100));
+    if(data?.length){
+      tracks = [...tracks, ...data];
+      renderTracks();
+    }
+  }catch(e){ console.warn('playlist fetch', e.message); }
 }
 
 function filteredTracks(){
@@ -480,6 +497,7 @@ function filteredTracks(){
     t = t.filter(x=>ids.has(x.id));
     const pos = Object.fromEntries(playlistTracks.filter(pt=>pt.playlist_id===activePlaylistId).map(pt=>[pt.track_id, pt.position]));
     t = [...t].sort((a,b)=>(pos[a.id]||0)-(pos[b.id]||0));
+    ensurePlaylistTracksLoaded([...ids]); // pagination guard: fetch any tracks not yet paged in
   }
   if(filter!=='all') t = t.filter(x=>(x.extractor||'').toLowerCase()===filter);
   if(searchQ) {
@@ -527,6 +545,7 @@ function renderTracks(){
   const list = filteredTracks();
   const el=$('tracks-list');
   if(!el) return;
+  const keepSentinel = el.querySelector('#track-sentinel'); // preserve observer node across innerHTML
   if(!list.length){
     const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
     const isFiltered = isLikesView || activePlaylistId || filter!=='all' || searchQ;
@@ -569,6 +588,8 @@ function renderTracks(){
       <div class="t-progress" aria-hidden="true"><div class="t-progress-bar" data-bar="${esc(tr.id)}" style="width:${progress}%"></div></div>
     </div>`;
   }).join('');
+  if(keepSentinel) el.appendChild(keepSentinel); // re-attach before rows' end so observer keeps working
+  else trackSentinel(); // first render creates it
   el.querySelectorAll('.track').forEach(node=>{
     node.addEventListener('click', e=>{
       if(e.target.closest('[data-more]') || e.target.closest('[data-play]')) return;
@@ -1062,15 +1083,32 @@ audio.addEventListener('play', ()=>{ if(upnextSheet?.classList.contains('open'))
   }
 })();
 
-// search/filter - debounced
+// search/filter - debounced; falls back to server query for tracks beyond loaded pages
 let searchDebounce=null;
+async function serverSearch(q){
+  try{
+    const { data } = await sb.from('tracks')
+      .select('id,original_url,extractor,extractor_id,title,artist,thumbnail_url,storage_path,duration_sec,file_size,created_at')
+      .or(`title.ilike.%${q}%,artist.ilike.%${q}%`)
+      .limit(100);
+    if(data?.length){
+      const known = new Set(tracks.map(t=>t.id));
+      const fresh = data.filter(t=>!known.has(t.id));
+      if(fresh.length){ tracks=[...tracks, ...fresh]; renderTracks(); }
+    }
+  }catch(e){ console.warn('server search', e.message); }
+}
 searchInput?.addEventListener('input', ()=>{
   clearTimeout(searchDebounce);
   updateSearchClear();
-  searchDebounce=setTimeout(()=>{
+  searchDebounce=setTimeout(async ()=>{
     searchQ=searchInput.value.trim();
     renderTracks();
-    if(searchQ.length>=2) logEvent('search', null, { q: searchQ.slice(0,40), filter });
+    if(searchQ.length>=2){
+      logEvent('search', null, { q: searchQ.slice(0,40), filter });
+      // if local pages hold no match, ask the server (covers unloaded pages)
+      if(!filteredTracks().length) await serverSearch(searchQ);
+    }
   }, 160);
 });
 document.querySelectorAll('.chip').forEach(c=> c.addEventListener('click', ()=>{

@@ -8,7 +8,15 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $ = id => document.getElementById(id);
 const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');
 function isValidThumb(url){ try{ const u=new URL(url); return u.protocol==='https:'; }catch{ return false; } }
-function toast(m){ const t=$('toast'); if(!t) return; t.textContent=m; t.classList.add('show'); t.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>{t.classList.remove('show'); t.style.display='none';},2500); }
+function toast(m, kind){
+  const t=$('toast'); if(!t) return;
+  t.textContent=m;
+  t.classList.toggle('toast--err', kind==='error');
+  t.classList.add('show'); t.style.display='block';
+  clearTimeout(toast._t);
+  toast._t=setTimeout(()=>{t.classList.remove('show','toast--err'); t.style.display='none';},2500);
+}
+toast.error = m => toast(m, 'error');
 function vibrate(p=10){ try{ navigator.vibrate&&navigator.vibrate(p);}catch{} }
 
 // --- State ---
@@ -123,6 +131,7 @@ async function initAuth(){
       return;
     }
     await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]);
+    loadPopular(); // fire-and-forget: fills play badges on rows
   }
   else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to see your private library</small>'; $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in required</div><button id="gate-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`; setTimeout(()=>{ const b=$('gate-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); if(!sessionStorage.getItem('login-redirect')){ sessionStorage.setItem('login-redirect','1'); setTimeout(()=> redirectToLogin(), 400); } },0); }
 }
@@ -137,7 +146,7 @@ sb.auth.onAuthStateChange(async (_event, session)=>{
       toast('Awaiting admin approval');
       return;
     }
-    authRedirectDone=false; sessionStorage.removeItem('login-redirect'); await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]);
+    authRedirectDone=false; sessionStorage.removeItem('login-redirect'); await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]); loadPopular();
   } else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; renderPlaylists(); renderTracks(); if(!authRedirectDone) setTimeout(()=> redirectToLogin(), 200); }
 });
 initAuth();
@@ -508,7 +517,7 @@ async function removeFromPlaylist(pid, tid){
   const { error } = await sb.from('playlist_tracks').delete().eq('playlist_id', pid).eq('track_id', tid);
   if(error){
     if(error.message.includes('policy') || error.message.includes('permission')) toast('Not allowed — not owner');
-    else toast('Remove failed: '+error.message);
+    else toast.error('Remove failed: '+error.message);
     return;
   }
   toast('Removed from playlist');
@@ -541,8 +550,9 @@ function renderTracks(){
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const plays = popularCache?.get(tr.id) || 0;
-    const playBadge = popularSort && plays ? `▶ ${plays}` : '';
-    const meta = [esc(tr.artist||tr.extractor||''), esc(tr.extractor||''), playBadge, dur, size].filter(Boolean).join(' · ');
+    const playBadge = plays ? `▶ ${plays}` : '';
+    const artistLine = tr.artist || tr.extractor || '';
+    const meta = [esc(artistLine), playBadge, dur].filter(Boolean).join(' · ');
     const progress = isCur && isFinite(audio.duration) && audio.duration ? Math.round(audio.currentTime/audio.duration*100) : 0;
     const liked=isLiked(tr.id);
     return `<div class="track ${playingClass}" data-id="${esc(tr.id)}">
@@ -552,7 +562,7 @@ function renderTracks(){
         <div class="t-sub">${meta}</div>
       </div>
       <div class="t-actions">
-        <button class="mini play-mini" data-play="${esc(tr.id)}" aria-label="Play">${isCur && isPlaying?'⏸':'▶'}</button>
+        <button class="mini play-mini ${isCur && isPlaying?'playing':''}" data-play="${esc(tr.id)}" aria-label="Play"><svg width="14" height="14" class="i-play-icon"><use href="#i-play"/></svg><svg width="14" height="14" class="i-pause-icon" style="display:none"><use href="#i-pause"/></svg></button>
         <button class="like-btn ${liked?'liked':''}" data-like="${esc(tr.id)}" aria-label="Like"><svg width="18" height="18"><use href="${liked ? '#i-heart-filled' : '#i-heart'}"/></svg></button>
         <button class="track-more" data-more="${esc(tr.id)}" aria-label="More">⋯</button>
       </div>
@@ -794,7 +804,7 @@ async function playTrack(id){
   const url = await getSignedUrl(tr.storage_path);
   if(!url){ toast('File missing'); return; }
   audio.src = url;
-  audio.play().catch(e=>{ toast('Playback failed'); console.warn(e); isPlaying=false; syncPlayButtons(); });
+  audio.play().catch(e=>{ toast.error('Playback failed'); console.warn(e); isPlaying=false; syncPlayButtons(); });
   isPlaying=true;
   updatePlayerUI(tr);
   renderTracks();
@@ -815,13 +825,8 @@ async function playTrack(id){
   }
 }
 function syncPlayButtons(){
-  const icon = isPlaying ? '⏸' : '▶';
-  const b=$('play-btn'); if(b) b.textContent=icon;
-  const pb=$('ps-play'); if(pb){
-    const playIcon=pb.querySelector('.i-play-icon'), pauseIcon=pb.querySelector('.i-pause-icon');
-    if(playIcon&&pauseIcon){ playIcon.style.display=isPlaying?'none':''; pauseIcon.style.display=isPlaying?'':'none'; }
-    else pb.textContent=icon;
-  }
+  const b=$('play-btn'); if(b) b.classList.toggle('playing', isPlaying);
+  const pb=$('ps-play'); if(pb) pb.classList.toggle('playing', isPlaying);
 }
 function updatePlayerUI(tr){
   const title=$('player-title'), artist=$('player-artist'), psTitle=$('ps-title'), psArtist=$('ps-artist');
@@ -848,7 +853,7 @@ function prev(){
 }
 function togglePlay(){
   if(!curTrackId){ const f=filteredTracks(); if(f[0]) playTrack(f[0].id); return; }
-  if(audio.paused){ audio.play().catch(()=>toast('Playback failed')); } else { audio.pause(); }
+  if(audio.paused){ audio.play().catch(()=>toast.error('Playback failed')); } else { audio.pause(); }
 }
 $('play-btn')?.addEventListener('click', ()=>{ vibrate(8); togglePlay(); });
 $('ps-play')?.addEventListener('click', ()=>{ vibrate(8); togglePlay(); });
@@ -869,7 +874,7 @@ function patchPlayingRow(){
     row.classList.add('playing');
     row.classList.toggle('is-playing', isPlaying);
     const btn=row.querySelector('[data-play]');
-    if(btn) btn.textContent = isPlaying ? '⏸' : '▶';
+    if(btn) btn.classList.toggle('playing', isPlaying);
     const eq=row.querySelector('.t-eq'); if(eq) eq.style.display = isPlaying ? 'flex' : 'none';
     const bar=row.querySelector('.t-progress'); if(bar) bar.style.display = isPlaying ? 'block' : 'none';
   }
@@ -877,7 +882,7 @@ function patchPlayingRow(){
 audio.addEventListener('ended', ()=>{ if(repeat) audio.play().catch(()=>{}); else next(); });
 audio.addEventListener('play', ()=>{ isPlaying=true; syncPlayButtons(); patchPlayingRow(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='playing';}catch{} });
 audio.addEventListener('pause', ()=>{ isPlaying=false; syncPlayButtons(); patchPlayingRow(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='paused';}catch{} });
-audio.addEventListener('error', async ()=>{ isPlaying=false; syncPlayButtons(); const tr=tracks.find(t=>t.id===curTrackId); if(tr && currentUser && tr.storage_path){ urlCache.delete(tr.storage_path); const u=await getSignedUrl(tr.storage_path,true); if(u && u!==audio.src){ audio.src=u; audio.play().catch(()=>{ toast('Audio load error — file may be missing'); }); return; } } toast('Audio load error — file may be missing'); });
+audio.addEventListener('error', async ()=>{ isPlaying=false; syncPlayButtons(); const tr=tracks.find(t=>t.id===curTrackId); if(tr && currentUser && tr.storage_path){ urlCache.delete(tr.storage_path); const u=await getSignedUrl(tr.storage_path,true); if(u && u!==audio.src){ audio.src=u; audio.play().catch(()=>{ toast.error('Audio load error — file may be missing'); }); return; } } toast.error('Audio load error — file may be missing'); });
 function onTimeUpdate(){
   if(!isFinite(audio.duration)) return;
   const cur=fmtTime(audio.currentTime), dur=fmtTime(audio.duration);
@@ -885,7 +890,7 @@ function onTimeUpdate(){
   const dt=$('dur-time'); if(dt) dt.textContent=dur;
   const v=Math.round(audio.currentTime/audio.duration*1000);
   const seek=$('seek'), psSeek=$('ps-seek');
-  if(seek) seek.value=v;
+  if(seek){ seek.value=v; seek.style.setProperty('--fill', (v/10)+'%'); }
   if(psSeek) psSeek.value=v;
   const fill=$('ps-fill'); if(fill) fill.style.width=(audio.currentTime/audio.duration*100)+'%';
   // row progress line
@@ -919,7 +924,7 @@ $('cache-btn')?.addEventListener('click', async()=>{
     toast('Caching for offline...');
     await c.add(url);
     toast('Cached offline ✓');
-  }catch(e){ toast('Cache failed: '+e.message); }
+  }catch(e){ toast.error('Cache failed: '+e.message); }
 });
 
 // Player sheet
@@ -996,7 +1001,7 @@ document.querySelectorAll('.chip').forEach(c=> c.addEventListener('click', ()=>{
   c.classList.add('active'); c.setAttribute('aria-selected','true');
   filter=c.dataset.filter; renderTracks();
 }));
-$('refresh-btn')?.addEventListener('click', async()=>{ await Promise.all([loadTracks(), loadQueue(), loadPlaylists()]); popularCache=null; if(popularSort) await loadPopular(); toast('Refreshed'); });
+$('refresh-btn')?.addEventListener('click', async()=>{ await Promise.all([loadTracks(), loadQueue(), loadPlaylists()]); popularCache=null; await loadPopular(); toast('Refreshed'); });
 
 // --- Realtime ---
 try{

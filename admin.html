@@ -92,7 +92,8 @@ const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 const sb=supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-function toast(m){ const t=$('toast'); if(!t) return; t.textContent=m; t.classList.add('show'); t.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>{t.classList.remove('show'); t.style.display='none';},2500); }
+function toast(m, kind){ const t=$('toast'); if(!t) return; t.textContent=m; t.classList.toggle('toast--err', kind==='error'); t.classList.add('show'); t.style.display='block'; clearTimeout(toast._t); toast._t=setTimeout(()=>{t.classList.remove('show','toast--err'); t.style.display='none';},2500); }
+toast.error = m => toast(m, 'error');
 let currentUser=null;
 function getInitial(e){ return (e||'?').trim().charAt(0).toUpperCase(); }
 function renderAuth(){
@@ -228,7 +229,7 @@ async function loadStats(){
         toast('Deleted '+title);
         await loadStats();
       }catch(e){
-        toast('Delete failed: '+e.message);
+        toast.error('Delete failed: '+e.message);
         btn.disabled=false; btn.textContent='✕ Delete';
       }
     });
@@ -280,7 +281,7 @@ async function loadStats(){
         const id=b.getAttribute('data-approve');
         b.disabled=true; b.textContent='…';
         const { error } = await sb.from('approved_users').insert({user_id:id, approved_by: currentUser?.id});
-        if(error) toast('Approve failed: '+error.message);
+        if(error) toast.error('Approve failed: '+error.message);
         else { toast('Approved'); await loadPending(); await loadStats(); }
         b.disabled=false; b.textContent='Approve';
       });

@@ -204,10 +204,18 @@ a{color:var(--text)}
 .player-title{font-weight:600;font-size:14px;line-height:1.2;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .player-artist{color:var(--text-secondary);font-size:12px;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
 .player-center{display:none}
-.mini-progress{position:absolute;top:0;left:0;right:0;height:2px;display:block}
-.mini-progress input[type=range]{width:100%;height:2px;-webkit-appearance:none;background:transparent;border-radius:0;accent-color:var(--accent);cursor:pointer;display:block}
-.mini-progress input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--border)}
+/* mini progress line — child of .player-bar, visible on ALL devices */
+.mini-progress{position:absolute;top:0;left:0;right:0;height:14px;display:flex;align-items:center;z-index:2}
+.mini-progress input[type=range]{width:100%;height:14px;-webkit-appearance:none;background:transparent;border-radius:0;accent-color:var(--accent);cursor:pointer;display:block}
+.mini-progress input[type=range]::-webkit-slider-runnable-track{height:2px;background:linear-gradient(90deg, var(--accent) var(--fill,0%), var(--border) var(--fill,0%))}
 .mini-progress input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:0;height:0;opacity:0}
+.mini-progress input[type=range]::-moz-range-track{height:2px;background:var(--border)}
+.mini-progress input[type=range]::-moz-range-thumb{width:0;height:0;opacity:0;border:none}
+/* play/pause glyph flip for mini + rows */
+.i-play-icon,.i-pause-icon{pointer-events:none}
+button.playing .i-play-icon{display:none}
+button.playing .i-pause-icon{display:inline}
+.btn-icon-only{display:inline-grid;place-items:center;padding:7px 9px}
 .player-controls{display:flex;align-items:center;gap:8px}
 .player-right{display:flex;align-items:center;gap:8px;justify-content:flex-end}
 .player-right input[type=range]{width:80px;accent-color:var(--accent);height:2px;cursor:pointer}
@@ -313,8 +321,9 @@ a{color:var(--text)}
 .modal-card h3{font-size:13px;font-weight:600}
 .modal-card input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:4px;outline:none;font-size:13px}
 .modal-card input:focus{border-color:var(--border-strong)}
-#toast{position:fixed;bottom:calc(var(--player-h) + 12px);left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);padding:8px 12px;border-radius:4px;display:none;z-index:99;box-shadow:0 4px 12px rgba(0,0,0,.4);font-size:12px;font-weight:500;max-width:90vw;white-space:nowrap}
+#toast{position:fixed;bottom:calc(var(--player-h) + 12px);left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);padding:8px 12px;border-radius:4px;display:none;z-index:99;box-shadow:0 4px 12px rgba(0,0,0,.4);font-size:12px;font-weight:500;max-width:min(90vw,380px);white-space:normal;word-break:break-word}
 #toast.show{display:block}
+#toast.toast--err{border-color:var(--danger-border);background:var(--danger-bg);color:#e8a0a0}
 
 /* PWA banner sits above player+tabs */
 .pwa-banner{
@@ -392,7 +401,7 @@ a{color:var(--text)}
   .player-controls{gap:4px}
   .player-controls .icon-btn{width:32px;height:32px;font-size:11px}
   .player-controls .icon-btn.play{width:36px;height:36px;font-size:12px}
-  .mini-progress{height:2px;top:auto;bottom:0}
+  .mini-progress input[type=range]{height:2px}
 
   .bottom-tabs{
     display:flex;position:fixed;bottom:0;left:0;right:0;

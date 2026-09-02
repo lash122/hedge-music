@@ -658,7 +658,7 @@ $('as-next')?.addEventListener('click', ()=>{
   const q=window._playQueue||filteredTracks();
   const idx=q.findIndex(t=>t.id===curTrackId);
   const tr=tracks.find(t=>t.id===pendingSheetTrackId);
-  if(tr && idx>=0){ q.splice(idx+1,0,tr); window._playQueue=q; toast('Will play next'); }
+  if(tr && idx>=0){ q.splice(idx+1,0,tr); window._playQueue=q; toast('Will play next'); if(upnextSheet?.classList.contains('open')) renderUpNext(); }
   else if(tr) playTrack(tr.id);
   closeTrackSheet();
 });
@@ -837,6 +837,13 @@ function updatePlayerUI(tr){
   const art=$('player-art'); if(art){ if(tr.thumbnail_url){ art.src=tr.thumbnail_url; art.style.display=''; } else art.style.display='none'; }
   const psArt=$('ps-art'), psPh=$('ps-art-ph');
   if(psArt && psPh){ if(tr.thumbnail_url){ psArt.src=tr.thumbnail_url; psArt.style.display=''; psPh.style.display='none'; } else { psArt.style.display='none'; psPh.style.display='grid'; } }
+  // ambient backdrop — blurred cover art behind the sheet
+  const ambient=$('ps-ambient');
+  if(ambient){
+    if(tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ambient.style.backgroundImage=`url("${tr.thumbnail_url}")`;
+    else ambient.style.backgroundImage='none';
+  }
+  renderUpNext();
   syncPlayButtons();
 }
 function next(){
@@ -947,6 +954,77 @@ playerOverlay?.addEventListener('click', closePlayerSheet);
 $('ps-more')?.addEventListener('click', ()=>{ if(curTrackId) openTrackSheet(curTrackId); });
 audio.volume=0.9;
 audio.removeAttribute('crossorigin');
+
+// --- Up Next queue sheet ---
+const upnextSheet=$('upnext-sheet'), upnextOverlay=$('upnext-overlay');
+function openUpNext(){
+  if(!upnextSheet) return;
+  renderUpNext();
+  upnextSheet.classList.add('open'); upnextSheet.setAttribute('aria-hidden','false');
+  if(upnextOverlay) upnextOverlay.style.display='block';
+  document.body.style.overflow='hidden';
+}
+function closeUpNext(){
+  if(!upnextSheet) return;
+  upnextSheet.classList.remove('open'); upnextSheet.setAttribute('aria-hidden','true');
+  if(upnextOverlay) upnextOverlay.style.display='none';
+  document.body.style.overflow='';
+}
+function renderUpNext(){
+  const el=$('upnext-list'); if(!el) return;
+  const q = window._playQueue || [];
+  if(!q.length){ el.innerHTML=`<div class="empty" style="padding:16px"><div class="empty-icon">♪</div><div>Queue empty</div><small style="color:var(--text-tertiary)">Play a track to build the queue</small></div>`; return; }
+  el.innerHTML = q.map((t,i)=>{
+    const now = t.id===curTrackId;
+    const art = (t.thumbnail_url && isValidThumb(t.thumbnail_url)) ? `<img src="${esc(t.thumbnail_url)}" loading="lazy" alt="">` : `<div class="up-ph">♪</div>`;
+    return `<div class="upnext-item" data-upnext="${esc(t.id)}" ${now?'style="background:var(--surface-active)"':''}>
+      ${art}
+      <div style="min-width:0">
+        <div class="upnext-title">${now?'<span class="upnext-now">Now playing</span> · ':''}${esc(t.title)}</div>
+        <div class="upnext-artist">${esc(t.artist||t.extractor||'')}</div>
+      </div>
+      ${now?'':`<span class="upnext-idx">${i+1}</span><button class="upnext-remove" data-remove="${esc(t.id)}" aria-label="Remove from queue">✕</button>`}
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-upnext]').forEach(node=>{
+    node.addEventListener('click', e=>{
+      if(e.target.closest('[data-remove]')) return;
+      vibrate(6);
+      playTrack(node.getAttribute('data-upnext'));
+      renderUpNext();
+    });
+  });
+  el.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      vibrate(8);
+      const id=btn.getAttribute('data-remove');
+      const q=window._playQueue||[];
+      const idx=q.findIndex(t=>t.id===id);
+      if(idx>=0){
+        if(idx < queuePos) queuePos--; // keep position consistent when removing an earlier item
+        q.splice(idx,1);
+        window._playQueue=q;
+      }
+      renderUpNext();
+      toast('Removed from queue');
+    });
+  });
+}
+$('ps-queue-btn')?.addEventListener('click', ()=>{ vibrate(8); openUpNext(); });
+$('upnext-close')?.addEventListener('click', ()=>{ vibrate(6); closeUpNext(); });
+upnextOverlay?.addEventListener('click', closeUpNext);
+$('upnext-clear')?.addEventListener('click', ()=>{
+  const q=window._playQueue||[];
+  const cur=q.find(t=>t.id===curTrackId);
+  window._playQueue = cur ? [cur] : [];
+  queuePos = cur ? 0 : -1;
+  renderUpNext();
+  toast('Queue cleared');
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeUpNext(); });
+// re-render Up Next when open, as playback advances
+audio.addEventListener('play', ()=>{ if(upnextSheet?.classList.contains('open')) renderUpNext(); });
 
 // swipe: down to close + left/right for next/prev
 (function(){

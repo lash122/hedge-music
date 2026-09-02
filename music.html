@@ -168,11 +168,15 @@
 
   <!-- Fullscreen Player Sheet -->
   <div id="player-sheet" class="player-sheet" aria-hidden="true" role="dialog" aria-label="Now playing">
+    <div id="ps-ambient" class="ps-ambient" aria-hidden="true"></div>
     <div class="sheet-handle"></div>
     <div class="ps-head">
       <button id="ps-close" class="btn btn-ghost" aria-label="Minimize">⌄</button>
       <span class="ps-title">Now Playing</span>
-      <button id="ps-more" class="btn btn-ghost" aria-label="More">⋯</button>
+      <div style="display:flex;gap:4px">
+        <button id="ps-queue-btn" class="btn btn-ghost" title="Up next" aria-label="Up next queue"><svg width="18" height="18"><use href="#i-list"/></svg></button>
+        <button id="ps-more" class="btn btn-ghost" aria-label="More">⋯</button>
+      </div>
     </div>
     <div class="ps-art-wrap">
       <img id="ps-art" src="" alt="" style="display:none">
@@ -196,6 +200,20 @@
     <div class="ps-queue-hint">Swipe left/right for next • Swipe down to minimize</div>
   </div>
   <div id="player-overlay" class="sheet-overlay" style="display:none"></div>
+
+  <!-- Up Next Queue Sheet -->
+  <div id="upnext-sheet" class="action-sheet" aria-hidden="true" role="dialog" aria-label="Up next">
+    <div class="sheet-handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 12px;border-bottom:1px solid var(--border);margin-bottom:12px">
+      <h3 style="font-size:14px;font-weight:600">Up Next</h3>
+      <div style="display:flex;gap:6px">
+        <button id="upnext-clear" class="btn btn-ghost" style="padding:6px 10px">Clear</button>
+        <button id="upnext-close" class="btn btn-ghost" style="padding:6px 10px">Close</button>
+      </div>
+    </div>
+    <div id="upnext-list" class="upnext-list" style="max-height:56dvh;overflow:auto"></div>
+  </div>
+  <div id="upnext-overlay" class="sheet-overlay" style="display:none"></div>
 
   <!-- Settings → Server / Ingestion -->
   <div id="settings-sheet" class="action-sheet" aria-hidden="true" role="dialog" aria-label="Settings">

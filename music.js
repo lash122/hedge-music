@@ -834,23 +834,25 @@ $('as-next')?.addEventListener('click', ()=>{
   else if(tr) playTrack(tr.id);
   closeTrackSheet();
 });
-// swipe down to dismiss track sheet
+// swipe down to dismiss track sheet (hardened: cancel/multi-touch can never latch a stuck transform)
 (function attachSheetSwipe(){
   const sheet=$('track-sheet');
   if(!sheet) return;
   let startY=0, curY=0, dragging=false;
-  sheet.addEventListener('touchstart', e=>{ startY=e.touches[0].clientY; dragging=true; sheet.style.transition='none'; }, {passive:true});
+  function endSheetSwipe(cancelled){
+    dragging=false; sheet.style.transition='';
+    sheet.style.transform='';
+    if(!cancelled && curY>90) closeTrackSheet();
+    curY=0;
+  }
+  sheet.addEventListener('touchstart', e=>{ if(e.touches.length>1){ dragging=false; return; } startY=e.touches[0].clientY; curY=0; dragging=true; sheet.style.transition='none'; }, {passive:true});
   sheet.addEventListener('touchmove', e=>{
     if(!dragging) return;
     curY=e.touches[0].clientY - startY;
-    if(curY>0) sheet.style.transform=`translateY(${curY}px)`;
+    if(curY>0) sheet.style.transform=`translateY(${Math.min(curY,160)}px)`;
   }, {passive:true});
-  sheet.addEventListener('touchend', ()=>{
-    dragging=false; sheet.style.transition='';
-    sheet.style.transform='';
-    if(curY>90) closeTrackSheet();
-    curY=0;
-  });
+  sheet.addEventListener('touchend', ()=> endSheetSwipe(false));
+  sheet.addEventListener('touchcancel', ()=> endSheetSwipe(true));
 })();
 
 // --- Playlists ---
@@ -1144,6 +1146,8 @@ updateNetDot();
 const playerSheet=$('player-sheet'), playerOverlay=$('player-overlay');
 function openPlayerSheet(){
   if(!curTrackId){ toast('Play something first'); return; }
+  // clear any latched drag transform from an interrupted gesture
+  playerSheet.style.transition=''; playerSheet.style.transform='';
   playerSheet.classList.add('open'); playerSheet.setAttribute('aria-hidden','false');
   playerOverlay.style.display='block';
   document.body.style.overflow='hidden';
@@ -1233,31 +1237,41 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeUpNext(); })
 audio.addEventListener('play', ()=>{ if(upnextSheet?.classList.contains('open')) renderUpNext(); });
 
 // swipe: down to close + left/right for next/prev
+// (hardened: touchcancel / multi-touch / off-screen slides snap back instead of
+// latching a stuck inline transform that used to survive close + reopen)
 (function(){
   if(!playerSheet) return;
   let sx=0, sy=0, dx=0, dy=0, drag=false;
-  const TH_X=60, TH_Y=90;
-  playerSheet.addEventListener('touchstart', e=>{ sx=e.touches[0].clientX; sy=e.touches[0].clientY; dx=0; dy=0; drag=true; playerSheet.style.transition='none'; }, {passive:true});
+  const TH_X=60, TH_Y=90, MAX_FOLLOW=28, MAX_DOWN=160;
+  function resetSheetPos(){
+    drag=false; playerSheet.style.transition=''; playerSheet.style.transform='';
+  }
+  function endPlayerSwipe(cancelled){
+    resetSheetPos();
+    if(!cancelled){
+      if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > TH_X){
+        vibrate(10);
+        if(dx < 0) next(); else prev();
+      } else if(dy > TH_Y) closePlayerSheet();
+    }
+    dx=0; dy=0;
+  }
+  playerSheet.addEventListener('touchstart', e=>{ if(e.touches.length>1){ drag=false; return; } sx=e.touches[0].clientX; sy=e.touches[0].clientY; dx=0; dy=0; drag=true; playerSheet.style.transition='none'; }, {passive:true});
   playerSheet.addEventListener('touchmove', e=>{
     if(!drag) return;
     dx=e.touches[0].clientX - sx;
     dy=e.touches[0].clientY - sy;
-    // prioritize vertical vs horizontal
+    // prioritize vertical vs horizontal; clamped so a cancelled gesture
+    // can never freeze the sheet far off-screen
     if(Math.abs(dx) > Math.abs(dy)){
-      // horizontal drag — translateX subtle
-      if(Math.abs(dx) < 80) playerSheet.style.transform=`translateX(${dx*0.35}px)`;
+      const cx=Math.max(-MAX_FOLLOW, Math.min(MAX_FOLLOW, dx*0.35));
+      playerSheet.style.transform=`translateX(${cx}px)`;
     } else {
-      if(dy>0) playerSheet.style.transform=`translateY(${dy}px)`;
+      if(dy>0) playerSheet.style.transform=`translateY(${Math.min(dy,MAX_DOWN)}px)`;
     }
   }, {passive:true});
-  playerSheet.addEventListener('touchend', ()=>{
-    drag=false; playerSheet.style.transition=''; playerSheet.style.transform='';
-    if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > TH_X){
-      vibrate(10);
-      if(dx < 0) next(); else prev();
-    } else if(dy > TH_Y) closePlayerSheet();
-    dx=0; dy=0;
-  });
+  playerSheet.addEventListener('touchend', ()=> endPlayerSwipe(false));
+  playerSheet.addEventListener('touchcancel', ()=> endPlayerSwipe(true));
   // desktop drag with mouse for testing
   let mx=0, my=0, mdx=0, mdy=0, mdrag=false;
   const artWrap=document.querySelector('.ps-art-wrap');

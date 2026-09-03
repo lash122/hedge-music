@@ -244,6 +244,11 @@ button.playing .i-pause-icon{display:inline}
   transform:translateY(100%);
   transition:transform .32s cubic-bezier(.32,.72,0,1);
   overflow:auto;
+  /* horizontal drags belong to the app (swipe next/prev) — never let the
+     browser steal them for back-navigation, which cancels the touch sequence
+     and used to leave the sheet stuck mid-drag */
+  touch-action:pan-y;
+  overscroll-behavior:contain;
 }
 /* ambient artwork backdrop — blurred cover fills the sheet behind content */
 .ps-ambient{
@@ -260,7 +265,7 @@ button.playing .i-pause-icon{display:inline}
 .player-sheet .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:4px auto 8px;display:block}
 .ps-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .ps-title{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-secondary);font-weight:600}
-.ps-art-wrap{aspect-ratio:1;max-height:46vh;width:100%;max-width:420px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;display:grid;place-items:center;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.ps-art-wrap{aspect-ratio:1;max-height:46vh;width:100%;max-width:420px;margin:0 auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;display:grid;place-items:center;box-shadow:0 12px 40px rgba(0,0,0,.4);touch-action:pan-y}
 .ps-art-wrap img{width:100%;height:100%;object-fit:cover;display:block}
 .ps-art-ph{font-size:48px;color:var(--text-tertiary)}
 .ps-meta{text-align:center;min-width:0}
@@ -298,6 +303,8 @@ button.playing .i-pause-icon{display:inline}
   transform:translateY(100%);
   transition:transform .28s cubic-bezier(.32,.72,0,1);
   max-height:70dvh;overflow:auto;
+  touch-action:pan-y;
+  overscroll-behavior:contain;
 }
 .action-sheet.open{transform:translateY(0)}
 .action-sheet .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:4px auto 8px;display:block}

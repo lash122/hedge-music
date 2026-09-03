@@ -712,7 +712,7 @@ function renderTracks(){
     }
     return;
   }
-  el.innerHTML = list.map(tr=>{
+  el.innerHTML = list.map((tr,idx)=>{
     const isCur = tr.id===curTrackId;
     const playingClass = isCur ? 'playing' + (isPlaying ? ' is-playing' : '') : '';
     const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" decoding="async" width="64" height="64" alt="">` : (()=>{ const tone=toneCache.get(tr.id); return `<div class="t-ph" data-tone="${esc(tr.id)}" style="width:64px;height:64px;background:${tone?`linear-gradient(135deg, ${tone.m}, var(--bg))`:'var(--bg)'};border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`; })();
@@ -724,7 +724,7 @@ function renderTracks(){
     const meta = [esc(artistLine), playBadge, dur].filter(Boolean).join(' · ');
     const progress = isCur && isFinite(audio.duration) && audio.duration ? Math.round(audio.currentTime/audio.duration*100) : 0;
     const liked=isLiked(tr.id);
-    return `<div class="track ${playingClass}" data-id="${esc(tr.id)}">
+    return `<div class="track ${playingClass}" data-id="${esc(tr.id)}" style="--i:${Math.min(idx,11)}">
       ${art}
       <div style="min-width:0;flex:1">
         <div style="display:flex;align-items:center;gap:6px;min-width:0"><div class="t-title" style="flex:1">${esc(tr.title)}</div><div class="t-eq" aria-hidden="true"><span></span><span></span><span></span></div></div>
@@ -1012,6 +1012,18 @@ function updatePlayerUI(tr){
   const art=$('player-art'); if(art){ if(tr.thumbnail_url){ art.src=tr.thumbnail_url; art.style.display=''; } else art.style.display='none'; }
   const psArt=$('ps-art'), psPh=$('ps-art-ph');
   if(psArt && psPh){ if(tr.thumbnail_url){ psArt.src=tr.thumbnail_url; psArt.style.display=''; psPh.style.display='none'; } else { psArt.style.display='none'; psPh.style.display='grid'; } }
+  // artwork crossfade on track change
+  [art, psArt].forEach(el=>{ if(el && el.src) el.classList.add('swap'); });
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    document.querySelectorAll('#ps-art.swap,#player-art.swap').forEach(el=>el.classList.remove('swap'));
+  }));
+  // marquee long titles in the fullscreen player instead of truncating
+  if(psTitle){
+    if(tr.title && tr.title.length>26){
+      psTitle.classList.add('marquee');
+      psTitle.innerHTML=`<span>${esc(tr.title)}&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;${esc(tr.title)}&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;</span>`;
+    } else { psTitle.classList.remove('marquee'); }
+  }
   // ambient backdrop — blurred cover art behind the sheet
   const ambient=$('ps-ambient');
   if(ambient){

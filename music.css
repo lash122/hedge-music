@@ -193,7 +193,7 @@ a{color:var(--text)}
 #refresh-btn.spinning{opacity:.7;pointer-events:none}
 #refresh-btn.spinning svg{animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.skeleton,#refresh-btn.spinning svg{animation:none}}
+@media(prefers-reduced-motion:reduce){.skeleton,#refresh-btn.spinning svg{animation:none}.track{animation:none}.ps-track-title.marquee>span{animation:none}.player-sheet,.action-sheet{transition-duration:.01s}}
 .empty code{color:var(--text-secondary)}
 
 /* Player bar - desktop flex, phone mini */
@@ -226,10 +226,29 @@ a{color:var(--text)}
 .mini-progress input[type=range]::-moz-range-track{height:2px;background:var(--border)}
 .mini-progress input[type=range]::-moz-range-thumb{width:0;height:0;opacity:0;border:none}
 /* play/pause glyph flip for mini + rows */
-.i-play-icon,.i-pause-icon{pointer-events:none}
-.i-pause-icon{display:none}
-button.playing .i-play-icon{display:none}
-button.playing .i-pause-icon{display:inline}
+.i-play-icon,.i-pause-icon{pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+.icon-btn.play,.play-mini{position:relative}
+.icon-btn.play .i-play-icon,.icon-btn.play .i-pause-icon,.play-mini .i-play-icon,.play-mini .i-pause-icon{position:absolute}
+.i-pause-icon{opacity:0;transform:scale(.4)}
+button.playing .i-play-icon{opacity:0;transform:scale(.4)}
+button.playing .i-pause-icon{opacity:1;transform:scale(1)}
+/* tactile press states */
+.btn,.icon-btn,.mini,.chip,.tab,.playlist-item,.track-more,.like-btn{transition:transform .12s ease,background .12s,border-color .12s,color .12s}
+.btn:active,.icon-btn:active,.mini:active,.chip:active,.tab:active{transform:scale(.94)}
+/* row entrance cascade */
+.track{animation:rowIn .45s cubic-bezier(.22,1,.36,1) backwards;animation-delay:calc(var(--i,0)*30ms)}
+@keyframes rowIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+/* display type + tabular numerals */
+.t-title,.player-title,.ps-track-title,.brand-text{font-family:var(--font-display);letter-spacing:-.01em}
+.ps-track-title{font-size:22px;font-weight:700}
+.t-sub,.ps-time,#tracks-count,.t-progress-bar{font-variant-numeric:tabular-nums}
+/* marquee for long player titles */
+.ps-track-title.marquee{overflow:hidden;white-space:nowrap;text-overflow:clip}
+.ps-track-title.marquee>span{display:inline-block;white-space:nowrap;animation:marq 9s linear infinite}
+@keyframes marq{to{transform:translateX(-50%)}}
+/* artwork crossfade */
+#ps-art,.player-left img{transition:opacity .25s ease}
+#ps-art.swap,.player-left img.swap{opacity:0}
 .btn-icon-only{display:inline-grid;place-items:center;padding:7px 9px}
 .player-controls{display:flex;align-items:center;gap:8px}
 .player-right{display:flex;align-items:center;gap:8px;justify-content:flex-end}
@@ -246,7 +265,7 @@ button.playing .i-pause-icon{display:inline}
   display:flex;flex-direction:column;gap:16px;
   max-height:92dvh;
   transform:translateY(100%);
-  transition:transform .32s cubic-bezier(.32,.72,0,1);
+  transition:transform .5s cubic-bezier(.32,.9,.3,1);
   overflow:auto;
   /* horizontal drags belong to the app (swipe next/prev) — never let the
      browser steal them for back-navigation, which cancels the touch sequence

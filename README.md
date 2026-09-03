@@ -7,14 +7,14 @@ Separate untracked app next to `hedge3` Wonderland. **Out of git history** as re
 - **Phone PWA** (`music.html`): paste *any* `yt-dlp` URL (YouTube, SoundCloud, Bandcamp, Vimeo, TikTok... ~1800 sites). Queues as `pending` in `ingest_queue`. Play/search/playlist/shuffle/repeat/offline-cache from Supabase `tracks` bucket. All features work without laptop.
 - **Laptop** (`tools/ingest.js`): when you run `node tools/ingest.js --watch`, it batch-processes all pending collectively: `yt-dlp -x --audio-format mp3 --audio-quality 0` + `ffmpeg` → uploads MP3 to `tracks` bucket → inserts `tracks` row. Then PWA auto-refreshes via Realtime.
 
-Free Supabase holds **~200 songs @192k (1GB)** or **~285 @128k**. See `supabase-music.sql` header.
+Free Supabase holds **~200 songs @192k (1GB)** or **~285 @128k**. See `supabase-setup.sql` header.
 
 ## Folder (untracked, outside git repo `/home/saof/Desktop/Hedge3/hedge3`)
 
 ```
 /home/saof/Desktop/Hedge3/hedge3-music/
-  music.html, music.js, music.css, manifest.webmanifest, sw.js, icons/
-  supabase-music.sql
+  music.html (app), index.html (redirect stub), admin.html, music.js, music.css, manifest.json, sw.js, icons/
+  supabase-setup.sql   ← canonical backend setup (old supabase-*.sql files kept for history)
   tools/ ingest.js, package.json, .env.example, README.md, ingest.bat/sh
 ```
 
@@ -24,7 +24,7 @@ Repo `hedge3` untouched. This folder is sibling to `hedge3`, so `git -C hedge3 s
 
 ### 1. Supabase (once, 1 min)
 
-Supabase Dashboard → SQL Editor → paste `supabase-music.sql` → Run. Creates `tracks`, `ingest_queue`, `playlists`, `playlist_tracks`, bucket `tracks` (public).
+Supabase Dashboard → SQL Editor → paste `supabase-setup.sql` → Run. Creates `tracks`, `ingest_queue`, `playlists`, `playlist_tracks`, `track_events`, approval tables, bucket `tracks` (private, approved-read).
 
 ### 2. Laptop ingest
 

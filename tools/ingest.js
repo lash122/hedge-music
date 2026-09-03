@@ -77,6 +77,7 @@ function createSemaphore(max) {
 function canonicalUrl(u) {
   try {
     const url = new URL(u);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return u;
     url.hash = '';
     if (url.hostname === 'youtu.be') {
       url.hostname = 'www.youtube.com';
@@ -84,22 +85,30 @@ function canonicalUrl(u) {
       url.pathname = '/watch';
       url.searchParams.set('v', id);
     }
-    ['t', 'si', 'st', 'utm_source', 'utm_medium', 'utm_campaign'].forEach(p => url.searchParams.delete(p));
+    if (url.hostname === 'm.youtube.com' || url.hostname === 'music.youtube.com') url.hostname = 'www.youtube.com';
+    // tracking / player-state params that create false-distinct URLs
+    ['t', 'si', 'st', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+     'list', 'index', 'ab_channel', 'feature', 'pp', 'rad', 'playnext', 'spfreload', 'vl',
+     'emb_logo', 'enablejsapi', 'origin', 'widget_referrer'].forEach(p => url.searchParams.delete(p));
     url.searchParams.sort();
     return url.toString();
   } catch { return u; }
 }
 
-// --- Subprocess with timeout ---
+// --- Subprocess with timeout (process-group kill so yt-dlp's ffmpeg child dies too) ---
 function run(cmd, cmdArgs, opts = {}) {
   return new Promise((resolve, reject) => {
     const timeoutMs = opts.timeout || SPAWN_TIMEOUT_MS;
-    const p = spawn(cmd, cmdArgs, { ...opts, detached: false });
+    const p = spawn(cmd, cmdArgs, { ...opts, detached: true });
     let out = '', errout = '';
     let killed = false;
     const t = setTimeout(() => {
       killed = true;
-      try { process.kill(p.pid, 'SIGKILL'); } catch {}
+      try {
+        // negative pid = whole process group (POSIX). Falls back to single kill on Windows.
+        try { process.kill(-p.pid, 'SIGKILL'); }
+        catch { try { p.kill('SIGKILL'); } catch {} }
+      } catch {}
       reject(new Error(`${cmd} timed out after ${Math.round(timeoutMs/1000)}s`));
     }, timeoutMs);
     p.stdout?.on('data', d => out += d);
@@ -110,12 +119,16 @@ function run(cmd, cmdArgs, opts = {}) {
       code === 0 ? resolve({ out, errout }) : reject(new Error(`${cmd} exit ${code}: ${errout.slice(0, 800)}`));
     });
     p.on('error', e => { clearTimeout(t); reject(e); });
+    p.unref?.();
   });
 }
 
+// Permanent failures: retrying burns attempts + hours of backoff for zero gain
+const NON_RETRYABLE = /private video|video unavailable|has been deleted|has been removed|login required|sign in|log in|age[-\s]?restrict|copyright|unsupported url|no video formats|not a valid url|410|403 forbidden|forbidden|account (suspended|terminated)|community guidelines/i;
 function isRetryable(e) {
-  const msg = String(e.message || '').toLowerCase();
-  return /429|503|timeout|timed out|econnreset|etimedout|unavailable|temporarily|try again|sign in/i.test(msg);
+  const msg = String(e.message || '');
+  if (NON_RETRYABLE.test(msg)) return false;
+  return /429|503|timeout|timed out|econnreset|etimedout|econnrefused|enotfound|unavailable|temporarily|try again|rate.limit|socket/i.test(msg.toLowerCase());
 }
 
 async function withRetry(fn, { retries = 3, baseMs = 2000 } = {}) {
@@ -143,28 +156,30 @@ async function checkDeps() {
     process.exit(1);
   }
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+  // hard fail when schema is missing — a green check here must mean "ready to ingest"
   const { error } = await sb.from('tracks').select('id').limit(1);
-  if (error && !error.message.includes('does not exist')) err(`Supabase ping failed: ${error.message}`);
-  else log(`Supabase ${SUPABASE_URL} ✓`);
+  if (error) { err(`Supabase not ready: ${error.message} — run supabase-setup.sql in SQL Editor first`); process.exit(1); }
+  log(`Supabase ${SUPABASE_URL} ✓`);
   log(`Worker ${WORKER_ID} — concurrency ${CONCURRENCY}, batch ${BATCH_LIMIT}, attempts ${MAX_ATTEMPTS}.`);
   log('All checks pass.');
 }
 
 async function getMetadata(url) {
-  const a = ['--print-json', '--no-download', '--no-warnings', '--no-playlist', '--socket-timeout', '15', '--retries', '3'];
+  const a = ['--print-json', '--no-download', '--no-warnings', '--no-playlist', '--socket-timeout', '15', '--retries', '2'];
   if (COOKIES && existsSync(COOKIES)) a.push('--cookies', COOKIES);
   a.push(url);
-  const { out } = await withRetry(() => run(YT_DLP, a), { retries: 2, baseMs: 1500 });
+  // single retry here — yt-dlp already retries internally, queue-level backoff handles the rest
+  const { out } = await withRetry(() => run(YT_DLP, a), { retries: 1, baseMs: 1500 });
   const firstLine = out.trim().split('\n')[0];
   if (!firstLine) throw new Error('yt-dlp returned empty metadata (possibly rate-limited)');
   return JSON.parse(firstLine);
 }
 
 async function downloadMp3(url, outTemplate) {
-  const a = ['-x', '--audio-format', 'mp3', '--audio-quality', QUALITY, '--no-playlist', '--restrict-filenames', '--no-warnings', '--socket-timeout', '15', '--retries', '3', '--fragment-retries', '3'];
+  const a = ['-x', '--audio-format', 'mp3', '--audio-quality', QUALITY, '--no-playlist', '--restrict-filenames', '--no-warnings', '--socket-timeout', '15', '--retries', '2', '--fragment-retries', '2'];
   if (COOKIES && existsSync(COOKIES)) a.push('--cookies', COOKIES);
   a.push('-o', outTemplate, url);
-  await withRetry(() => run(YT_DLP, a), { retries: 2, baseMs: 3000 });
+  await withRetry(() => run(YT_DLP, a), { retries: 1, baseMs: 3000 });
 }
 
 // Cleanup tmp files: by explicit path and sweep old ones (>1h) so they don't accumulate
@@ -180,14 +195,31 @@ function cleanupTmp(exceptPath) {
   } catch {}
 }
 
+// Remove every tmp artifact of one job (mp3 + .part/.ytdl/.webp/.info.json sidecars),
+// so a failed attempt never pollutes the next retry.
+function cleanupJobFiles(tmpBase) {
+  try {
+    const base = tmpBase.split('/').pop();
+    for (const f of readdirSync(localTmp).filter(x => x.startsWith(base))) {
+      try { unlinkSync(join(localTmp, f)); } catch {}
+    }
+  } catch {}
+}
+
 async function processOne(sb, job) {
   const idShort = job.id.slice(0, 8);
-  const canon = job.canonical_url || canonicalUrl(job.original_url);
+  const sourceUrl = job.original_url || '';
+  if (!/^https?:\/\//i.test(sourceUrl)) {
+    await sb.from('ingest_queue').update({ status: 'error', error: 'Rejected: URL must start http(s)://', claimed_at: null, claimed_by: null }).eq('id', job.id);
+    err(`[${idShort}] rejected non-http URL, marked error`);
+    return;
+  }
+  const canon = job.canonical_url || canonicalUrl(sourceUrl);
   log(`[${idShort}] claimed by ${WORKER_ID} ← ${canon}`);
-  // If another engine claimed it before we got job list, ignore
+  let tmpBase = null;
   try {
     // 1. Metadata
-    const meta = await getMetadata(canonicalUrl(job.original_url) || job.original_url);
+    const meta = await getMetadata(canon);
     const extractor = meta.extractor || job.extractor || 'unknown';
     const extractorId = String(meta.id || meta.display_id || job.id);
     const title = (meta.title || meta.track || meta.fulltitle || 'Unknown').slice(0, 200);
@@ -195,19 +227,28 @@ async function processOne(sb, job) {
     const thumb = meta.thumbnail || meta.thumbnails?.at(-1)?.url || null;
     const duration = Math.round(meta.duration || 0) || null;
 
-    // dedup check
+    // dedup check (url → extractor+id → canonical url)
     const { data: dup } = await sb.from('tracks').select('id').eq('original_url', job.original_url).maybeSingle();
     if (dup) { log(`  ↳ duplicate by url, marking done (track ${dup.id})`); await sb.from('ingest_queue').update({ status: 'done', extractor, extractor_id: extractorId, error: null }).eq('id', job.id); return; }
     const { data: dup2 } = await sb.from('tracks').select('id').eq('extractor_id', extractorId).eq('extractor', extractor).maybeSingle();
     if (dup2) { log(`  ↳ duplicate extractor_id, marking done`); await sb.from('ingest_queue').update({ status: 'done', extractor, extractor_id: extractorId, error: null }).eq('id', job.id); return; }
+    const { data: dup3 } = await sb.from('tracks').select('id').eq('canonical_url', canon).maybeSingle();
+    if (dup3) { log(`  ↳ duplicate canonical_url, marking done`); await sb.from('ingest_queue').update({ status: 'done', extractor, extractor_id: extractorId, error: null }).eq('id', job.id); return; }
+
+    // --dry-run: report what WOULD happen, touch nothing, leave job pending
+    if (DRY) {
+      log(`  [dry-run] would ingest: "${title}" — ${artist} [${extractor}:${extractorId}] (${duration ?? '?'}s)`);
+      await sb.from('ingest_queue').update({ extractor, extractor_id: extractorId, claimed_at: null, claimed_by: null }).eq('id', job.id);
+      return;
+    }
 
     // 2. Download
     const safeExtractor = String(extractor).replace(/[^a-z0-9]/gi, '_').slice(0, 30) || 'unknown';
     const safeId = extractorId.replace(/[^a-zA-Z0-9_-]/g, '_');
-    const tmpBase = join(localTmp, `hedge3-${safeExtractor}-${safeId}-${job.id.slice(0, 8)}`);
+    tmpBase = join(localTmp, `hedge3-${safeExtractor}-${safeId}-${job.id.slice(0, 8)}`);
     const template = `${tmpBase}.%(ext)s`;
     log(`  ↳ downloading yt-dlp -x --audio-format mp3 --audio-quality ${QUALITY} ...`);
-    if (!DRY) await downloadMp3(job.original_url, template);
+    await downloadMp3(job.original_url, template);
 
     // find produced mp3
     let mp3Path = `${tmpBase}.mp3`;
@@ -224,7 +265,7 @@ async function processOne(sb, job) {
 
     // 3. Streaming upload
     const storagePath = `${safeExtractor}-${safeId}.mp3`;
-    if (!DRY) {
+    {
       const stream = createReadStream(mp3Path);
       const { error: upErr } = await sb.storage.from('tracks').upload(storagePath, stream, { contentType: 'audio/mpeg', upsert: false, duplex: 'half' });
       if (upErr) {
@@ -252,12 +293,23 @@ async function processOne(sb, job) {
     const { error: insErr } = await sb.from('tracks').insert(trackPayload);
     if (insErr) {
       if (insErr.message.includes('duplicate') || insErr.code === '23505') log('  ↳ already in tracks, ok');
-      else throw new Error(`DB insert: ${insErr.message}`);
+      else {
+        // compensating cleanup: don't orphan the uploaded MP3 — but only when no
+        // other track row references the same file (shared via dedup)
+        try {
+          const { data: refs } = await sb.from('tracks').select('id').eq('storage_path', storagePath).limit(1);
+          if (!refs?.length) await sb.storage.from('tracks').remove([storagePath]);
+        } catch {}
+        throw new Error(`DB insert: ${insErr.message}`);
+      }
     }
 
     await sb.from('ingest_queue').update({ status: 'done', extractor, extractor_id: extractorId, error: null, claimed_at: null, claimed_by: null, next_retry_at: null }).eq('id', job.id);
     log(`  ✓ done → ${title} - ${artist} [${extractor}]`);
   } catch (e) {
+    // this attempt's partial files must not leak into the next retry
+    if (tmpBase) cleanupJobFiles(tmpBase);
+    else cleanupTmp();
     const attempts = (job.attempts || 0) + 1;
     const retryable = isRetryable(e);
     err(`  ✗ attempt ${attempts}/${MAX_ATTEMPTS} failed: ${e.message.slice(0, 120)}`);
@@ -287,13 +339,14 @@ async function processQueue() {
     if (error) {
       // fallback: if RPC missing (migration not run), use old sequential claim so we don't break
       if (error.message.includes('function') || error.message.includes('does not exist')) {
-        log('claim_queue_jobs RPC missing — run supabase-ingest-parallel.sql in SQL Editor');
+        log('claim_queue_jobs RPC missing — run supabase-setup.sql in SQL Editor');
         const { data: legacy, error: lerr } = await sb.from('ingest_queue').select('*').eq('status', 'pending').order('created_at', { ascending: true }).limit(BATCH_LIMIT);
         if (lerr) { err(`Queue fetch: ${lerr.message}`); return; }
         if (!legacy?.length) { log('No pending jobs.'); return; }
-        // process serially via old path for compatibility
+        // process serially via old path for compatibility.
+        // attempts are counted ONLY on failure in processOne — do not increment here.
         for (const job of legacy) {
-          const { data: claimed } = await sb.from('ingest_queue').update({ status: 'processing', attempts: (job.attempts||0)+1, claimed_at: new Date().toISOString(), claimed_by: WORKER_ID }).eq('id', job.id).eq('status','pending').select('id').maybeSingle();
+          const { data: claimed } = await sb.from('ingest_queue').update({ status: 'processing', claimed_at: new Date().toISOString(), claimed_by: WORKER_ID }).eq('id', job.id).eq('status','pending').select('id').maybeSingle();
           if (claimed) await processOne(sb, job);
         }
         return;
@@ -311,6 +364,7 @@ async function processQueue() {
 }
 
 async function main() {
+  if (DRY) log('DRY RUN — metadata only: nothing uploaded, inserted, or marked done.');
   if (CHECK) { await checkDeps(); return; }
   await checkDeps();
   if (WATCH) {

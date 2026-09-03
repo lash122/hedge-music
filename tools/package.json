@@ -9,10 +9,13 @@
   "scripts": {
     "start": "node ingest.js --watch",
     "once": "node ingest.js --once",
-    "check": "node ingest.js --check"
+    "check": "node ingest.js --check",
+    "dry": "node ingest.js --once --dry-run"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
-    "ws": "^8.21.3"
+    "@supabase/supabase-js": "^2.45.0"
   }
 }

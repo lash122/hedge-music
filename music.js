@@ -196,9 +196,13 @@ function isMobile(){ return window.innerWidth<=860; }
 function canonicalUrl(u){
   try{
     const url=new URL(u);
+    if(url.protocol!=='http:' && url.protocol!=='https:') return u;
     url.hash='';
     if(url.hostname==='youtu.be'){ url.hostname='www.youtube.com'; const id=url.pathname.replace('/',''); url.pathname='/watch'; url.searchParams.set('v', id); }
-    ['t','si','st','utm_source','utm_medium','utm_campaign'].forEach(p=>url.searchParams.delete(p));
+    if(url.hostname==='m.youtube.com' || url.hostname==='music.youtube.com') url.hostname='www.youtube.com';
+    ['t','si','st','utm_source','utm_medium','utm_campaign','utm_term','utm_content',
+     'list','index','ab_channel','feature','pp','rad','playnext','spfreload','vl',
+     'emb_logo','enablejsapi','origin','widget_referrer'].forEach(p=>url.searchParams.delete(p));
     url.searchParams.sort();
     return url.toString();
   }catch{ return u; }
@@ -403,7 +407,7 @@ async function queueNow(){
   }catch(e){
     $('queue-status').textContent='✗ '+e.message; $('queue-status').className='status err';
     if(e.message.includes('does not exist') || e.message.includes('relation')){
-      $('queue-status').textContent += ' — Run supabase-music.sql first.';
+      $('queue-status').textContent += ' — Run supabase-setup.sql first.';
     }
     if(e.message.includes('row-level security') || e.message.includes('policy')) $('queue-status').textContent += ' — Log in first';
   } finally { $('queue-btn').disabled=false; }
@@ -469,7 +473,7 @@ async function loadTracks(reset=true, opts={}){
   if(epoch !== tracksEpoch) return;         // a newer load/reset started — discard this stale response
   if(error){
     console.warn('tracks load', error.message);
-    if(error.message.includes('does not exist')) $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">♪</div><div>Run <code>supabase-music.sql</code> in Supabase SQL Editor, then queue a URL.</div></div>';
+    if(error.message.includes('does not exist')) $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">♪</div><div>Run <code>supabase-setup.sql</code> in Supabase SQL Editor, then queue a URL.</div></div>';
     else $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div>Failed to load tracks</div></div>';
     return;
   }

@@ -713,7 +713,7 @@ function renderTracks(){
     }
     return;
   }
-  el.innerHTML = list.map((tr,idx)=>{
+  const _rows=list.map((tr,idx)=>{
     const isCur = tr.id===curTrackId;
     const playingClass = isCur ? 'playing' + (isPlaying ? ' is-playing' : '') : '';
     const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" decoding="async" width="64" height="64" alt="">` : (()=>{ const tone=toneCache.get(tr.id); return `<div class="t-ph" data-tone="${esc(tr.id)}" style="width:64px;height:64px;background:${tone?`linear-gradient(135deg, ${tone.m}, var(--bg))`:'var(--bg)'};border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`; })();
@@ -726,6 +726,8 @@ function renderTracks(){
     const progress = isCur && isFinite(audio.duration) && audio.duration ? Math.round(audio.currentTime/audio.duration*100) : 0;
     const liked=isLiked(tr.id);
     return `<div class="track ${playingClass}" data-id="${esc(tr.id)}" style="--i:${Math.min(idx,11)}">
+      <div class="track-under" aria-hidden="true"><span class="u-l">⏭ Play next</span><span class="u-r">♥ Like</span></div>
+      <div class="track-slide">
       ${art}
       <div style="min-width:0;flex:1">
         <div style="display:flex;align-items:center;gap:6px;min-width:0"><div class="t-title" style="flex:1">${esc(tr.title)}</div><div class="t-eq" aria-hidden="true"><span></span><span></span><span></span></div></div>
@@ -737,10 +739,63 @@ function renderTracks(){
         <button class="track-more" data-more="${esc(tr.id)}" aria-label="More">⋯</button>
       </div>
       <div class="t-progress" aria-hidden="true"><div class="t-progress-bar" data-bar="${esc(tr.id)}" style="width:${progress}%"></div></div>
+      </div>
     </div>`;
-  }).join('');
+  });
+  // visual sections only (queue order untouched): label the first 3 in default views
+  const _isLikesTab = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
+  if(!activePlaylistId && !searchQ && filter==='all' && !_isLikesTab && _rows.length>6){
+    _rows.splice(3, 0, `<div class="sec-div">${popularSort ? 'Most played' : 'Recently added'}</div>`);
+  }
+  el.innerHTML=_rows.join('');
   if(keepSentinel) el.appendChild(keepSentinel); // re-attach before rows' end so observer keeps working
   else trackSentinel(); // first render creates it
+}
+
+// Row swipe actions: right = play next, left = like. Vertical scroll stays native
+// (touch-action:pan-y hands vertical to the browser, which cancels us cleanly).
+function ensureRowSwipe(){
+  const el=$('tracks-list');
+  if(!el || el._rowSwipe) return;
+  el._rowSwipe=true;
+  let row=null, slide=null, sx=0, sy=0, dx=0, live=false;
+  const snap=()=>{
+    if(slide){ slide.style.transition=''; slide.style.transform=''; }
+    if(row) row.classList.remove('swipe-r','swipe-l');
+    row=null; slide=null; dx=0; live=false;
+  };
+  el.addEventListener('touchstart', e=>{
+    if(e.touches.length>1) return;
+    const r=e.target.closest('.track'); if(!r) return;
+    row=r; slide=r.querySelector('.track-slide');
+    sx=e.touches[0].clientX; sy=e.touches[0].clientY; dx=0; live=false;
+    if(slide) slide.style.transition='none';
+  }, {passive:true});
+  el.addEventListener('touchmove', e=>{
+    if(!row || !slide) return;
+    dx=e.touches[0].clientX-sx;
+    const dy=e.touches[0].clientY-sy;
+    if(!live){
+      if(Math.abs(dy)>Math.abs(dx) || Math.abs(dx)<12) return; // vertical → browser scrolls, cancel snaps back
+      live=true;
+    }
+    const cx=Math.max(-96, Math.min(96, dx));
+    slide.style.transform=`translateX(${cx}px)`;
+    row.classList.toggle('swipe-r', cx>0);
+    row.classList.toggle('swipe-l', cx<0);
+  }, {passive:true});
+  const end=cancelled=>{
+    if(!row){ snap(); return; }
+    const id=row.dataset.id, dir=dx>0?'r':'l', fire=!cancelled && live && Math.abs(dx)>64;
+    snap();
+    if(fire && id){
+      window._rowSwipeTs=Date.now(); // swallow the click that follows touchend
+      vibrate(10);
+      if(dir==='r') playNext(id); else toggleLike(id);
+    }
+  };
+  el.addEventListener('touchend', ()=>end(false));
+  el.addEventListener('touchcancel', ()=>end(true));
 }
 
 // Single delegated click handler — attaching ~200 listeners per render was the main jank source
@@ -748,7 +803,9 @@ function ensureTrackDelegation(){
   const el=$('tracks-list');
   if(!el || el._delegated) return;
   el._delegated = true;
+  ensureRowSwipe();
   el.addEventListener('click', e=>{
+    if(Date.now()-(window._rowSwipeTs||0)<500) return; // a swipe just fired — ignore the trailing click
     const likeBtn = e.target.closest('[data-like]');
     if(likeBtn){ e.stopPropagation(); toggleLike(likeBtn.getAttribute('data-like')); return; }
     const moreBtn = e.target.closest('[data-more]');
@@ -826,13 +883,17 @@ function closeTrackSheet(){
 $('track-overlay')?.addEventListener('click', closeTrackSheet);
 $('as-close')?.addEventListener('click', closeTrackSheet);
 $('as-play')?.addEventListener('click', ()=>{ if(pendingSheetTrackId) playTrack(pendingSheetTrackId); closeTrackSheet(); });
-$('as-next')?.addEventListener('click', ()=>{
-  if(!pendingSheetTrackId) return;
+function playNext(trackId){
+  const tr=tracks.find(t=>t.id===trackId);
+  if(!tr) return;
   const q=window._playQueue||filteredTracks();
   const idx=q.findIndex(t=>t.id===curTrackId);
-  const tr=tracks.find(t=>t.id===pendingSheetTrackId);
-  if(tr && idx>=0){ q.splice(idx+1,0,tr); window._playQueue=q; toast('Will play next'); if(upnextSheet?.classList.contains('open')) renderUpNext(); }
-  else if(tr) playTrack(tr.id);
+  if(idx>=0){ q.splice(idx+1,0,tr); window._playQueue=q; toast('Will play next'); if(upnextSheet?.classList.contains('open')) renderUpNext(); }
+  else playTrack(tr.id);
+}
+$('as-next')?.addEventListener('click', ()=>{
+  if(!pendingSheetTrackId) return;
+  playNext(pendingSheetTrackId);
   closeTrackSheet();
 });
 // swipe down to dismiss track sheet (hardened: cancel/multi-touch can never latch a stuck transform)

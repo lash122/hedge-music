@@ -130,6 +130,9 @@ a{color:var(--text)}
 .list-head h3{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary)}
 .head-actions{display:flex;gap:8px}
 .head-actions .btn{padding:7px 12px;font-size:12px;border-radius:4px}
+/* connectivity dot */
+.net-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;align-self:center}
+.net-dot.offline{background:#5a5a66}
 .tracks-header{display:grid;grid-template-columns:64px 1fr auto;gap:14px;padding:6px 14px;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary);border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg)}
 .tracks{display:flex;flex-direction:column}
 .track{
@@ -180,6 +183,13 @@ a{color:var(--text)}
 .empty-icon{font-size:32px;opacity:.5}
 .skeleton{height:62px;background:linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-top:1px solid var(--border)}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* smooth refresh: virtualize rows + spin feedback, no layout shift */
+.track{content-visibility:auto;contain-intrinsic-size:auto 84px}
+.track img{aspect-ratio:1/1}
+#refresh-btn.spinning{opacity:.7;pointer-events:none}
+#refresh-btn.spinning svg{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.skeleton,#refresh-btn.spinning svg{animation:none}}
 .empty code{color:var(--text-secondary)}
 
 /* Player bar - desktop flex, phone mini */

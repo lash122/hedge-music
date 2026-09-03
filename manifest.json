@@ -1,6 +1,7 @@
 {
   "name": "Hedge Music",
   "short_name": "HedgeMusic",
+  "id": "./music.html",
   "description": "Personal music library — queue & offline playback",
   "start_url": "./music.html",
   "scope": "./",
@@ -27,9 +28,11 @@
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "screenshots": [
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "form_factor": "narrow", "label": "Library" }
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "form_factor": "narrow", "label": "Library" },
+    { "src": "icons/screenshot-wide.png", "sizes": "1280x720", "type": "image/png", "form_factor": "wide", "label": "Library" }
   ]
 }

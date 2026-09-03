@@ -1,17 +1,19 @@
-// bump CACHE to force re-fetch after fix. Sync with query version on assets if needed.
-const CACHE = 'hedge-music-v17';
+// Single version source for the app shell. Bump on every deploy that changes
+// music.html / music.js / music.css / admin.html / index.html / manifest.json.
+const CACHE = 'hedge-music-v19';
 const TRACK_CACHE = 'tracks-v1';
 const TRACK_CACHE_MAX = 30; // LRU bound — phone storage protection
 const APP_SHELL = [
   './',
+  './index.html',
   './music.html',
   './admin.html',
   './music.css',
   './music.js',
-  './manifest.webmanifest',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png'
 ];
 
@@ -20,7 +22,16 @@ self.addEventListener('install', e=>{
   self.skipWaiting();
 });
 self.addEventListener('activate', e=>{
-  e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE && k!==TRACK_CACHE).map(k=>caches.delete(k)))));
+  e.waitUntil((async()=>{
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k=>k!==CACHE && k!==TRACK_CACHE).map(k=>caches.delete(k)));
+    // purge stale query-versioned entries (?v=N) left by older workers
+    try{
+      const c = await caches.open(CACHE);
+      const reqs = await c.keys();
+      await Promise.all(reqs.filter(r=>r.url.includes('?v=')).map(r=>c.delete(r)));
+    }catch{}
+  })());
   self.clients.claim();
 });
 
@@ -41,6 +52,17 @@ function trackKey(req){
   try{
     const u = new URL(req.url);
     return u.origin + u.pathname;
+  }catch{ return req.url; }
+}
+
+// Normalized shell key: strip ?v= query so version bumps hit the same entry.
+// The CACHE name itself is the version — no query-variant duplicates ever.
+function shellKey(req){
+  try{
+    const u = new URL(req.url);
+    u.search = '';
+    u.hash = '';
+    return u.toString();
   }catch{ return req.url; }
 }
 
@@ -79,11 +101,12 @@ self.addEventListener('fetch', e=>{
     e.respondWith(fetch(request).then(r=>{ const c=r.clone(); caches.open(CACHE).then(cache=>cache.put(request,c)); return r; }).catch(()=>caches.match(request).then(cached=>cached||caches.match('./music.html'))));
     return;
   }
-  if(request.url.endsWith('.js')||request.url.endsWith('.css')){
-    // stale-while-revalidate with 3s network timeout: race net vs timer, fallback to cache
+  if(url.pathname.endsWith('.js')||url.pathname.endsWith('.css')){
+    // stale-while-revalidate with 3s network timeout, keyed WITHOUT query string
+    const key = shellKey(request);
     e.respondWith((async()=>{
-      const cached = await caches.match(request);
-      const netP = fetch(request).then(r=>{ if(r.ok){ const cp=r.clone(); caches.open(CACHE).then(c=>c.put(request,cp)); } return r; }).catch(()=>null);
+      const cached = await caches.match(key);
+      const netP = fetch(request).then(r=>{ if(r.ok){ const cp=r.clone(); caches.open(CACHE).then(c=>c.put(key,cp)); } return r; }).catch(()=>null);
       const timeoutP = new Promise(r=>setTimeout(()=>r(null), 3000));
       const winner = await Promise.race([netP, timeoutP]);
       if(winner && winner.ok) return winner;
@@ -94,8 +117,8 @@ self.addEventListener('fetch', e=>{
     })());
     return;
   }
-  e.respondWith(caches.match(request).then(cached=>{
+  e.respondWith(caches.match(shellKey(request)).then(cached=>{
     if(cached) return cached;
-    return fetch(request).then(r=>{ if(r.ok) caches.open(CACHE).then(c=>c.put(request,r.clone())); return r; });
+    return fetch(request).then(r=>{ if(r.ok) caches.open(CACHE).then(c=>c.put(shellKey(request),r.clone())); return r; });
   }));
 });

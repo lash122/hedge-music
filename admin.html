@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hedge Music — Admin</title>
-<link rel="stylesheet" href="music.css?v=27">
+<link rel="stylesheet" href="music.css?v=28">
 <style>
 .admin-wrap{max-width:1100px;margin:16px auto;padding:0 16px 40px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
@@ -235,16 +235,20 @@ async function loadStats(){
     });
   });
 
-  // recent events — try admin view with email, fallback to raw
+  // recent events — prefer admin RPC (emails via definer), fall back to view, then raw
   const evBody=$('events-body');
   let evs2=null, e3=null;
   let useView=false;
   {
-    const r=await sb.from('v_admin_events').select('created_at,event,track_id,email,title').order('created_at',{ascending:false}).limit(30);
-    if(!r.error){ evs2=r.data; useView=true; }
+    const r0=await sb.rpc('get_admin_events', { p_limit: 30 }).then(r=>r, ()=>null);
+    if(r0 && !r0.error && r0.data){ evs2=r0.data; useView=true; }
     else {
-      const r2=await sb.from('track_events').select('created_at,event,track_id,user_id,meta').order('created_at',{ascending:false}).limit(30);
-      evs2=r2.data; e3=r2.error;
+      const r=await sb.from('v_admin_events').select('created_at,event,track_id,email,title').order('created_at',{ascending:false}).limit(30);
+      if(!r.error){ evs2=r.data; useView=true; }
+      else {
+        const r2=await sb.from('track_events').select('created_at,event,track_id,user_id,meta').order('created_at',{ascending:false}).limit(30);
+        evs2=r2.data; e3=r2.error;
+      }
     }
   }
   if(e3) evBody.innerHTML=`<tr><td colspan="4" style="color:var(--danger)">${esc(e3.message)} — run supabase-admin-analytics.sql</td></tr>`;
@@ -269,11 +273,10 @@ async function loadStats(){
     }
   }
 
-  // pending approvals
-  async function loadPending(){
+  // pending approvals — single renderer shared by loadPending + manual refresh
+  // (fixes: refresh-pending used to rebuild buttons without rebinding Approve)
+  function renderPendingRows(data){
     const body=$('pending-body'); if(!body) return;
-    const { data, error } = await sb.rpc('get_pending_users');
-    if(error){ body.innerHTML=`<tr><td colspan="3" style="color:var(--danger)">${esc(error.message)}</td></tr>`; return; }
     if(!data?.length) body.innerHTML=`<tr><td colspan="3" style="color:var(--text-tertiary)">No pending — all users approved</td></tr>`;
     else body.innerHTML=data.map(u=>`<tr><td>${esc(u.email)}</td><td>${esc(new Date(u.created_at).toLocaleString())}</td><td><button class="btn btn-main" style="padding:4px 10px" data-approve="${esc(u.id)}">Approve</button></td></tr>`).join('');
     body.querySelectorAll('[data-approve]').forEach(b=>{
@@ -286,6 +289,12 @@ async function loadStats(){
         b.disabled=false; b.textContent='Approve';
       });
     });
+  }
+  async function loadPending(){
+    const body=$('pending-body'); if(!body) return;
+    const { data, error } = await sb.rpc('get_pending_users');
+    if(error){ body.innerHTML=`<tr><td colspan="3" style="color:var(--danger)">${esc(error.message)}</td></tr>`; return; }
+    renderPendingRows(data);
   }
 
   // queue health
@@ -308,7 +317,14 @@ async function init(){
 }
 sb.auth.onAuthStateChange(async(_,s)=>{ currentUser=s?.user||null; renderAuth(); const ok=await checkAdmin(); if(ok) await loadStats(); });
 $('refresh-btn')?.addEventListener('click', loadStats);
-$('refresh-pending')?.addEventListener('click', async()=>{ const b=$('refresh-pending'); if(b){ b.textContent='…'; } await (async()=>{ const {data}=await sb.rpc('get_pending_users'); const body=$('pending-body'); if(body && data) body.innerHTML = !data.length ? `<tr><td colspan="3" style="color:var(--text-tertiary)">No pending</td></tr>` : data.map(u=>`<tr><td>${esc(u.email)}</td><td>${esc(new Date(u.created_at).toLocaleString())}</td><td><button class="btn btn-main" style="padding:4px 10px" data-approve="${esc(u.id)}">Approve</button></td></tr>`).join(''); })(); if(b) b.textContent='↺'; });
+$('refresh-pending')?.addEventListener('click', async()=>{
+  const b=$('refresh-pending'); if(b) b.textContent='…';
+  try{
+    const { data, error } = await sb.rpc('get_pending_users');
+    if(error) toast.error(error.message);
+    else renderPendingRows(data);
+  } finally { if(b) b.textContent='↺'; }
+});
 init();
 </script>
 </body>

@@ -33,7 +33,6 @@ let queuePos = 0;
 let curTrackId = null;
 let isPlaying = false;
 let repeat = false;
-let showRemaining = false; // tap total time to toggle remaining
 let pendingSheetTrackId = null;
 const LIKES_KEY='hedge-likes';
 function getLikes(){ try{ return new Set(JSON.parse(localStorage.getItem(LIKES_KEY)||'[]')); }catch{ return new Set(); } }
@@ -151,13 +150,6 @@ function restoreSnapshot(){
   }catch{ return false; }
 }
 function clearSnapshot(){ try{ localStorage.removeItem(SNAP_KEY); }catch{} }
-let _splashHidden=false;
-function hideSplash(){
-  if(_splashHidden) return; _splashHidden=true;
-  const s=$('boot-splash'); if(!s) return;
-  s.classList.add('hide');
-  setTimeout(()=>s.remove(), 650);
-}
 // --- Resume: now-playing (+position) across reloads. Tap to play (autoplay policy). ---
 const RESUME_KEY='hedge-resume-v1';
 const UI_KEY='hedge-ui-v1';
@@ -265,8 +257,7 @@ sb.auth.onAuthStateChange(async (_event, session)=>{
     sessionStorage.removeItem('login-redirect'); restoreSnapshot(); await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]); loadPopular(); restoreUIState(); restorePlaying();
   } else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; clearSnapshot(); renderPlaylists(); renderTracks(); }
 });
-initAuth().finally(()=>hideSplash()).catch(()=>hideSplash());
-setTimeout(()=>hideSplash(), 5000); // safety: never trap the user behind the splash
+initAuth();
 
 // --- Helpers ---
 function publicUrl(storagePath){
@@ -721,10 +712,10 @@ function renderTracks(){
     }
     return;
   }
-  const _rows=list.map((tr,idx)=>{
+  el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
     const playingClass = isCur ? 'playing' + (isPlaying ? ' is-playing' : '') : '';
-    const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" decoding="async" width="64" height="64" alt="">` : (()=>{ const tone=toneCache.get(tr.id); return `<div class="t-ph" data-tone="${esc(tr.id)}" style="width:64px;height:64px;background:${tone?`linear-gradient(135deg, ${tone.m}, var(--bg))`:'var(--bg)'};border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`; })();
+    const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" decoding="async" width="64" height="64" alt="">` : `<div style="width:64px;height:64px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`;
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const plays = popularCache?.get(tr.id) || 0;
@@ -733,9 +724,7 @@ function renderTracks(){
     const meta = [esc(artistLine), playBadge, dur].filter(Boolean).join(' · ');
     const progress = isCur && isFinite(audio.duration) && audio.duration ? Math.round(audio.currentTime/audio.duration*100) : 0;
     const liked=isLiked(tr.id);
-    return `<div class="track ${playingClass}" data-id="${esc(tr.id)}" style="--i:${Math.min(idx,11)}">
-      <div class="track-under" aria-hidden="true"><span class="u-l">⏭ Play next</span><span class="u-r">♥ Like</span></div>
-      <div class="track-slide">
+    return `<div class="track ${playingClass}" data-id="${esc(tr.id)}">
       ${art}
       <div style="min-width:0;flex:1">
         <div style="display:flex;align-items:center;gap:6px;min-width:0"><div class="t-title" style="flex:1">${esc(tr.title)}</div><div class="t-eq" aria-hidden="true"><span></span><span></span><span></span></div></div>
@@ -747,63 +736,10 @@ function renderTracks(){
         <button class="track-more" data-more="${esc(tr.id)}" aria-label="More">⋯</button>
       </div>
       <div class="t-progress" aria-hidden="true"><div class="t-progress-bar" data-bar="${esc(tr.id)}" style="width:${progress}%"></div></div>
-      </div>
     </div>`;
-  });
-  // visual sections only (queue order untouched): label the first 3 in default views
-  const _isLikesTab = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
-  if(!activePlaylistId && !searchQ && filter==='all' && !_isLikesTab && _rows.length>6){
-    _rows.splice(3, 0, `<div class="sec-div">${popularSort ? 'Most played' : 'Recently added'}</div>`);
-  }
-  el.innerHTML=_rows.join('');
+  }).join('');
   if(keepSentinel) el.appendChild(keepSentinel); // re-attach before rows' end so observer keeps working
   else trackSentinel(); // first render creates it
-}
-
-// Row swipe actions: right = play next, left = like. Vertical scroll stays native
-// (touch-action:pan-y hands vertical to the browser, which cancels us cleanly).
-function ensureRowSwipe(){
-  const el=$('tracks-list');
-  if(!el || el._rowSwipe) return;
-  el._rowSwipe=true;
-  let row=null, slide=null, sx=0, sy=0, dx=0, live=false;
-  const snap=()=>{
-    if(slide){ slide.style.transition=''; slide.style.transform=''; }
-    if(row) row.classList.remove('swipe-r','swipe-l');
-    row=null; slide=null; dx=0; live=false;
-  };
-  el.addEventListener('touchstart', e=>{
-    if(e.touches.length>1) return;
-    const r=e.target.closest('.track'); if(!r) return;
-    row=r; slide=r.querySelector('.track-slide');
-    sx=e.touches[0].clientX; sy=e.touches[0].clientY; dx=0; live=false;
-    if(slide) slide.style.transition='none';
-  }, {passive:true});
-  el.addEventListener('touchmove', e=>{
-    if(!row || !slide) return;
-    dx=e.touches[0].clientX-sx;
-    const dy=e.touches[0].clientY-sy;
-    if(!live){
-      if(Math.abs(dy)>Math.abs(dx) || Math.abs(dx)<12) return; // vertical → browser scrolls, cancel snaps back
-      live=true;
-    }
-    const cx=Math.max(-96, Math.min(96, dx));
-    slide.style.transform=`translateX(${cx}px)`;
-    row.classList.toggle('swipe-r', cx>0);
-    row.classList.toggle('swipe-l', cx<0);
-  }, {passive:true});
-  const end=cancelled=>{
-    if(!row){ snap(); return; }
-    const id=row.dataset.id, dir=dx>0?'r':'l', fire=!cancelled && live && Math.abs(dx)>64;
-    snap();
-    if(fire && id){
-      window._rowSwipeTs=Date.now(); // swallow the click that follows touchend
-      vibrate(10);
-      if(dir==='r') playNext(id); else toggleLike(id);
-    }
-  };
-  el.addEventListener('touchend', ()=>end(false));
-  el.addEventListener('touchcancel', ()=>end(true));
 }
 
 // Single delegated click handler — attaching ~200 listeners per render was the main jank source
@@ -811,9 +747,7 @@ function ensureTrackDelegation(){
   const el=$('tracks-list');
   if(!el || el._delegated) return;
   el._delegated = true;
-  ensureRowSwipe();
   el.addEventListener('click', e=>{
-    if(Date.now()-(window._rowSwipeTs||0)<500) return; // a swipe just fired — ignore the trailing click
     const likeBtn = e.target.closest('[data-like]');
     if(likeBtn){ e.stopPropagation(); toggleLike(likeBtn.getAttribute('data-like')); return; }
     const moreBtn = e.target.closest('[data-more]');
@@ -891,17 +825,13 @@ function closeTrackSheet(){
 $('track-overlay')?.addEventListener('click', closeTrackSheet);
 $('as-close')?.addEventListener('click', closeTrackSheet);
 $('as-play')?.addEventListener('click', ()=>{ if(pendingSheetTrackId) playTrack(pendingSheetTrackId); closeTrackSheet(); });
-function playNext(trackId){
-  const tr=tracks.find(t=>t.id===trackId);
-  if(!tr) return;
-  const q=window._playQueue||filteredTracks();
-  const idx=q.findIndex(t=>t.id===curTrackId);
-  if(idx>=0){ q.splice(idx+1,0,tr); window._playQueue=q; toast('Will play next'); if(upnextSheet?.classList.contains('open')) renderUpNext(); }
-  else playTrack(tr.id);
-}
 $('as-next')?.addEventListener('click', ()=>{
   if(!pendingSheetTrackId) return;
-  playNext(pendingSheetTrackId);
+  const q=window._playQueue||filteredTracks();
+  const idx=q.findIndex(t=>t.id===curTrackId);
+  const tr=tracks.find(t=>t.id===pendingSheetTrackId);
+  if(tr && idx>=0){ q.splice(idx+1,0,tr); window._playQueue=q; toast('Will play next'); if(upnextSheet?.classList.contains('open')) renderUpNext(); }
+  else if(tr) playTrack(tr.id);
   closeTrackSheet();
 });
 // swipe down to dismiss track sheet (hardened: cancel/multi-touch can never latch a stuck transform)
@@ -1082,103 +1012,14 @@ function updatePlayerUI(tr){
   const art=$('player-art'); if(art){ if(tr.thumbnail_url){ art.src=tr.thumbnail_url; art.style.display=''; } else art.style.display='none'; }
   const psArt=$('ps-art'), psPh=$('ps-art-ph');
   if(psArt && psPh){ if(tr.thumbnail_url){ psArt.src=tr.thumbnail_url; psArt.style.display=''; psPh.style.display='none'; } else { psArt.style.display='none'; psPh.style.display='grid'; } }
-  // artwork crossfade on track change
-  [art, psArt].forEach(el=>{ if(el && el.src) el.classList.add('swap'); });
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    document.querySelectorAll('#ps-art.swap,#player-art.swap').forEach(el=>el.classList.remove('swap'));
-  }));
-  // marquee long titles in the fullscreen player instead of truncating
-  if(psTitle){
-    if(tr.title && tr.title.length>26){
-      psTitle.classList.add('marquee');
-      psTitle.innerHTML=`<span>${esc(tr.title)}&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;${esc(tr.title)}&nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;</span>`;
-    } else { psTitle.classList.remove('marquee'); }
-  }
   // ambient backdrop — blurred cover art behind the sheet
   const ambient=$('ps-ambient');
   if(ambient){
     if(tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ambient.style.backgroundImage=`url("${tr.thumbnail_url}")`;
     else ambient.style.backgroundImage='none';
   }
-  applyDynamicColor(tr);
   renderUpNext();
-  // inline next-up peek under the controls
-  try{
-    const peek=$('ps-nextup');
-    if(peek){
-      const q=window._playQueue||[];
-      const nxt=q.length>1 ? q[(queuePos+1)%q.length] : null;
-      if(nxt && nxt.id!==curTrackId){ peek.innerHTML=`Next · <b>${esc(nxt.title)}</b> — ${esc(nxt.artist||nxt.extractor||'')}`; peek.style.display=''; }
-      else { peek.innerHTML=''; peek.style.display='none'; }
-    }
-  }catch{}
   syncPlayButtons();
-}
-
-// --- Dynamic color engine: per-song palette from artwork, cached per track ---
-// Falls back to brand accent whenever art is missing or CORS blocks sampling.
-const toneCache = new Map(); // trackId -> {v, m} css colors
-function resetDynamicColor(){
-  const r=document.documentElement.style;
-  r.removeProperty('--dyn-1'); r.removeProperty('--dyn-2');
-}
-function applyDynamicColor(tr){
-  if(!tr?.id) return resetDynamicColor();
-  const hit=toneCache.get(tr.id);
-  if(hit){ setDynamicVars(hit); return; }
-  if(!tr.thumbnail_url || !isValidThumb(tr.thumbnail_url)) return resetDynamicColor();
-  // settle to fallback instantly, then morph when sampling resolves
-  resetDynamicColor();
-  extractTones(tr.thumbnail_url).then(t=>{
-    if(!t) return;
-    toneCache.set(tr.id, t);
-    if(tr.id===curTrackId) setDynamicVars(t);
-    // warm list placeholders without a rebuild
-    document.querySelectorAll(`.t-ph[data-tone="${CSS.escape(String(tr.id))}"]`).forEach(el=>{
-      el.style.background=`linear-gradient(135deg, ${t.m}, var(--bg))`;
-    });
-  }).catch(()=>{});
-}
-function setDynamicVars(t){
-  const r=document.documentElement.style;
-  r.setProperty('--dyn-1', t.v);
-  r.setProperty('--dyn-2', t.m);
-}
-function extractTones(src){
-  return new Promise(resolve=>{
-    const im=new Image();
-    im.crossOrigin='anonymous';
-    const done=t=>resolve(t);
-    im.onload=()=>{
-      try{
-        const S=48, c=document.createElement('canvas');
-        c.width=S; c.height=S;
-        const x=c.getContext('2d', {willReadFrequently:true});
-        x.drawImage(im, 0, 0, S, S);
-        const d=x.getImageData(0, 0, S, S).data;
-        let n=0, r=0, g=0, b=0, bv=-1, br=0, bg=0, bb=0;
-        for(let i=0;i<d.length;i+=16){
-          const R=d[i], G=d[i+1], B=d[i+2], A=d[i+3];
-          if(A<128) continue;
-          const mx=Math.max(R,G,B), mn=Math.min(R,G,B);
-          if(mx<24 || mn>232) continue; // skip near-black / near-white
-          n++; r+=R; g+=G; b+=B;
-          const sat=mx===0?0:(mx-mn)/mx;
-          const score=sat*(mx/255);
-          if(score>bv){ bv=score; br=R; bg=G; bb=B; }
-        }
-        if(!n) return done(null);
-        const avg=[Math.round(r/n), Math.round(g/n), Math.round(b/n)];
-        // deepen average for surfaces, keep vibrant pick lively
-        const deep=avg.map(v=>Math.max(0, Math.round(v*0.45)));
-        const css=a=>`rgb(${a[0]},${a[1]},${a[2]})`;
-        done({ v: css([br,bg,bb]), m: css(deep) });
-      }catch{ done(null); } // tainted canvas (no CORS) → brand fallback
-    };
-    im.onerror=()=>done(null);
-    im.src=src;
-    setTimeout(()=>done(null), 4000); // never hang theming on art
-  });
 }
 function next(){
   const q = window._playQueue || filteredTracks();
@@ -1208,15 +1049,6 @@ function setRepeat(v){
 }
 $('repeat-btn')?.addEventListener('click', ()=>{ vibrate(8); setRepeat(!repeat); toast(repeat?'Repeat on':'Repeat off'); });
 $('repeat-btn-ps')?.addEventListener('click', ()=>{ vibrate(8); setRepeat(!repeat); toast(repeat?'Repeat on':'Repeat off'); });
-// --- Sleep timer (track ⋯ menu) ---
-let sleepTimer=null;
-function setSleep(min){
-  document.querySelectorAll('.sl-btn').forEach(b=>b.classList.toggle('active', (+b.dataset.sleep||0)===min));
-  clearTimeout(sleepTimer); sleepTimer=null;
-  if(min>0){ sleepTimer=setTimeout(()=>{ try{audio.pause();}catch{} toast('Sleep timer — playback stopped'); setSleep(0); }, min*60000); toast(`Sleep in ${min} min`); vibrate(8); }
-  else toast('Sleep timer off');
-}
-document.querySelectorAll('.sl-btn').forEach(b=> b.addEventListener('click', ()=> setSleep(+b.dataset.sleep||0)));
 function patchPlayingRow(){
   document.querySelectorAll('.track.playing').forEach(n=>{ if(n.dataset.id!==curTrackId) n.classList.remove('playing','is-playing'); });
   const row = document.querySelector(`.track[data-id="${CSS.escape(String(curTrackId||''))}"]`);
@@ -1253,13 +1085,11 @@ function onTimeUpdate(){
   saveResume(); // throttled internally — powers tap-to-resume after reload
   const cur=fmtTime(audio.currentTime), dur=fmtTime(audio.duration);
   const ct=$('cur-time'); if(ct) ct.textContent=cur;
-  const dt=$('dur-time'); if(dt) dt.textContent = (showRemaining && isFinite(audio.duration)) ? '-'+fmtTime(Math.max(0, audio.duration-audio.currentTime)) : dur;
+  const dt=$('dur-time'); if(dt) dt.textContent=dur;
   const v=Math.round(audio.currentTime/audio.duration*1000);
   const seek=$('seek'), psSeek=$('ps-seek');
   if(seek){ seek.value=v; seek.style.setProperty('--fill', (v/10)+'%'); }
   if(psSeek) psSeek.value=v;
-  const ring=$('play-ring-fg');
-  if(ring) ring.style.strokeDashoffset=(119.4*(1-(audio.currentTime/audio.duration))).toFixed(1);
   const fill=$('ps-fill'); if(fill) fill.style.width=(audio.currentTime/audio.duration*100)+'%';
   // row progress line
   const bar=document.querySelector(`.t-progress-bar[data-bar="${CSS.escape(curTrackId||'')}"]`);
@@ -1274,7 +1104,6 @@ function seekTo(frac){
   if(isFinite(audio.duration)) audio.currentTime = frac*audio.duration;
 }
 $('seek')?.addEventListener('input', ()=> seekTo($('seek').value/1000));
-$('dur-time')?.addEventListener('click', ()=>{ showRemaining=!showRemaining; vibrate(6); onTimeUpdate(); });
 $('ps-seek')?.addEventListener('input', ()=>{ const v=$('ps-seek').value; seekTo(v/1000); const f=$('ps-fill'); if(f) f.style.width=(v/10)+'%'; });
 $('vol')?.addEventListener('input', ()=> audio.volume=$('vol').value);
 audio.volume=0.9;
@@ -1393,7 +1222,6 @@ function renderUpNext(){
   });
 }
 $('ps-queue-btn')?.addEventListener('click', ()=>{ vibrate(8); openUpNext(); });
-$('ps-nextup')?.addEventListener('click', ()=>{ vibrate(8); openUpNext(); });
 $('upnext-close')?.addEventListener('click', ()=>{ vibrate(6); closeUpNext(); });
 upnextOverlay?.addEventListener('click', closeUpNext);
 $('upnext-clear')?.addEventListener('click', ()=>{

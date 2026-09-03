@@ -113,8 +113,9 @@ function redirectToLogin(){
   toast('Private library — log in to continue');
 }
 async function isApproved(){
+  // fail-CLOSED: any RPC error means "not approved" (locked gate, never open library)
   try{ const { data, error } = await sb.rpc('is_approved'); if(!error) return !!data; }catch{}
-  return true;
+  return false;
 }
 async function initAuth(){
   const {data:{session}}=await sb.auth.getSession();
@@ -920,7 +921,22 @@ function patchPlayingRow(){
 audio.addEventListener('ended', ()=>{ if(repeat) audio.play().catch(()=>{}); else next(); });
 audio.addEventListener('play', ()=>{ isPlaying=true; syncPlayButtons(); patchPlayingRow(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='playing';}catch{} });
 audio.addEventListener('pause', ()=>{ isPlaying=false; syncPlayButtons(); patchPlayingRow(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='paused';}catch{} });
-audio.addEventListener('error', async ()=>{ isPlaying=false; syncPlayButtons(); const tr=tracks.find(t=>t.id===curTrackId); if(tr && currentUser && tr.storage_path){ urlCache.delete(tr.storage_path); const u=await getSignedUrl(tr.storage_path,true); if(u && u!==audio.src){ audio.src=u; audio.play().catch(()=>{ toast.error('Audio load error — file may be missing'); }); return; } } toast.error('Audio load error — file may be missing'); });
+let audioErrRetries = 0;
+audio.addEventListener('error', async ()=>{
+  isPlaying=false; syncPlayButtons();
+  const tr=tracks.find(t=>t.id===curTrackId);
+  // one signed-URL refresh only — persistent failures (deleted file, revoked access)
+  // must surface, never loop
+  if(tr && currentUser && tr.storage_path && audioErrRetries < 1){
+    audioErrRetries++;
+    urlCache.delete(tr.storage_path);
+    const u=await getSignedUrl(tr.storage_path,true);
+    if(u && u!==audio.src){ audio.src=u; audio.play().catch(()=>{ toast.error('Audio load error — file may be missing'); }); return; }
+  }
+  audioErrRetries = 0;
+  toast.error('Audio load error — file may be missing');
+});
+audio.addEventListener('play', ()=>{ audioErrRetries = 0; });
 function onTimeUpdate(){
   if(!isFinite(audio.duration)) return;
   const cur=fmtTime(audio.currentTime), dur=fmtTime(audio.duration);
@@ -1096,10 +1112,13 @@ audio.addEventListener('play', ()=>{ if(upnextSheet?.classList.contains('open'))
 // search/filter - debounced; falls back to server query for tracks beyond loaded pages
 let searchDebounce=null;
 async function serverSearch(q){
+  // sanitize for PostgREST ilike: % _ " ' \ and commas (OR separator) break/mutate the query
+  const clean = String(q||'').replace(/[%_\\"'\n,]/g, '').trim().slice(0, 60);
+  if(clean.length < 2) return;
   try{
     const { data } = await sb.from('tracks')
       .select('id,original_url,extractor,extractor_id,title,artist,thumbnail_url,storage_path,duration_sec,file_size,created_at')
-      .or(`title.ilike.%${q}%,artist.ilike.%${q}%`)
+      .or(`title.ilike.%${clean}%,artist.ilike.%${clean}%`)
       .limit(100);
     if(data?.length){
       const known = new Set(tracks.map(t=>t.id));

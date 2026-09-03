@@ -1,5 +1,5 @@
 // bump CACHE to force re-fetch after fix. Sync with query version on assets if needed.
-const CACHE = 'hedge-music-v18';
+const CACHE = 'hedge-music-v17';
 const TRACK_CACHE = 'tracks-v1';
 const TRACK_CACHE_MAX = 30; // LRU bound — phone storage protection
 const APP_SHELL = [

@@ -180,13 +180,6 @@ a{color:var(--text)}
 .empty-icon{font-size:32px;opacity:.5}
 .skeleton{height:62px;background:linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-top:1px solid var(--border)}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-/* smooth refresh: virtualize rows + spin feedback, no layout shift */
-.track{content-visibility:auto;contain-intrinsic-size:auto 84px}
-.track img{aspect-ratio:1/1}
-#refresh-btn.spinning{opacity:.7;pointer-events:none}
-#refresh-btn.spinning svg{animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.skeleton,#refresh-btn.spinning svg{animation:none}}
 .empty code{color:var(--text-secondary)}
 
 /* Player bar - desktop flex, phone mini */

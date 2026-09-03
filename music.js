@@ -715,7 +715,7 @@ function renderTracks(){
   el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
     const playingClass = isCur ? 'playing' + (isPlaying ? ' is-playing' : '') : '';
-    const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" decoding="async" width="64" height="64" alt="">` : `<div style="width:64px;height:64px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`;
+    const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" decoding="async" width="64" height="64" alt="">` : (()=>{ const tone=toneCache.get(tr.id); return `<div class="t-ph" data-tone="${esc(tr.id)}" style="width:64px;height:64px;background:${tone?`linear-gradient(135deg, ${tone.m}, var(--bg))`:'var(--bg)'};border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`; })();
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const plays = popularCache?.get(tr.id) || 0;
@@ -1018,8 +1018,75 @@ function updatePlayerUI(tr){
     if(tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ambient.style.backgroundImage=`url("${tr.thumbnail_url}")`;
     else ambient.style.backgroundImage='none';
   }
+  applyDynamicColor(tr);
   renderUpNext();
   syncPlayButtons();
+}
+
+// --- Dynamic color engine: per-song palette from artwork, cached per track ---
+// Falls back to brand accent whenever art is missing or CORS blocks sampling.
+const toneCache = new Map(); // trackId -> {v, m} css colors
+function resetDynamicColor(){
+  const r=document.documentElement.style;
+  r.removeProperty('--dyn-1'); r.removeProperty('--dyn-2');
+}
+function applyDynamicColor(tr){
+  if(!tr?.id) return resetDynamicColor();
+  const hit=toneCache.get(tr.id);
+  if(hit){ setDynamicVars(hit); return; }
+  if(!tr.thumbnail_url || !isValidThumb(tr.thumbnail_url)) return resetDynamicColor();
+  // settle to fallback instantly, then morph when sampling resolves
+  resetDynamicColor();
+  extractTones(tr.thumbnail_url).then(t=>{
+    if(!t) return;
+    toneCache.set(tr.id, t);
+    if(tr.id===curTrackId) setDynamicVars(t);
+    // warm list placeholders without a rebuild
+    document.querySelectorAll(`.t-ph[data-tone="${CSS.escape(String(tr.id))}"]`).forEach(el=>{
+      el.style.background=`linear-gradient(135deg, ${t.m}, var(--bg))`;
+    });
+  }).catch(()=>{});
+}
+function setDynamicVars(t){
+  const r=document.documentElement.style;
+  r.setProperty('--dyn-1', t.v);
+  r.setProperty('--dyn-2', t.m);
+}
+function extractTones(src){
+  return new Promise(resolve=>{
+    const im=new Image();
+    im.crossOrigin='anonymous';
+    const done=t=>resolve(t);
+    im.onload=()=>{
+      try{
+        const S=48, c=document.createElement('canvas');
+        c.width=S; c.height=S;
+        const x=c.getContext('2d', {willReadFrequently:true});
+        x.drawImage(im, 0, 0, S, S);
+        const d=x.getImageData(0, 0, S, S).data;
+        let n=0, r=0, g=0, b=0, bv=-1, br=0, bg=0, bb=0;
+        for(let i=0;i<d.length;i+=16){
+          const R=d[i], G=d[i+1], B=d[i+2], A=d[i+3];
+          if(A<128) continue;
+          const mx=Math.max(R,G,B), mn=Math.min(R,G,B);
+          if(mx<24 || mn>232) continue; // skip near-black / near-white
+          n++; r+=R; g+=G; b+=B;
+          const sat=mx===0?0:(mx-mn)/mx;
+          const score=sat*(mx/255);
+          if(score>bv){ bv=score; br=R; bg=G; bb=B; }
+        }
+        if(!n) return done(null);
+        const avg=[Math.round(r/n), Math.round(g/n), Math.round(b/n)];
+        // deepen average for surfaces, keep vibrant pick lively
+        const deep=avg.map(v=>Math.max(0, Math.round(v*0.45)));
+        const css=a=>`rgb(${a[0]},${a[1]},${a[2]})`;
+        done({ v: css([br,bg,bb]), m: css(deep) });
+      }catch{ done(null); } // tainted canvas (no CORS) → brand fallback
+    };
+    im.onerror=()=>done(null);
+    im.src=src;
+    setTimeout(()=>done(null), 4000); // never hang theming on art
+  });
 }
 function next(){
   const q = window._playQueue || filteredTracks();

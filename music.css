@@ -22,6 +22,10 @@
   --radius:6px;
   --player-h:80px;
   --tabs-h:0px;
+  /* dynamic per-song theming (set from artwork at runtime; brand fallback) */
+  --dyn-1:var(--accent);
+  --dyn-2:#16241a;
+  --font-display:"Space Grotesk",Inter,system-ui,sans-serif;
 }
 html{scroll-behavior:smooth}
 body{
@@ -260,6 +264,8 @@ button.playing .i-pause-icon{display:inline}
 }
 .ps-ambient:empty{opacity:0}
 .player-sheet > *:not(.ps-ambient){position:relative;z-index:1}
+/* per-song tint wash over the sheet (morphs via --dyn-2) */
+.player-sheet::before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,transparent 20%,var(--dyn-2) 135%);opacity:.55;transition:opacity .5s}
 .player-sheet .sheet-handle,.player-sheet .ps-head,.player-sheet .ps-queue-hint{z-index:2}
 .player-sheet.open{transform:translateY(0)}
 .player-sheet .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:4px auto 8px;display:block}
@@ -284,7 +290,7 @@ button.playing .i-pause-icon{display:inline}
 .ps-range-wrap input[type=range]::-moz-range-track{height:4px;background:var(--border);border-radius:999px}
 .ps-range-wrap input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--accent);border:2px solid var(--surface);border-radius:50%;opacity:0;transition:opacity .15s}
 .ps-range-wrap:hover input[type=range]::-moz-range-thumb{opacity:1}
-.ps-range-fill{position:absolute;left:0;top:50%;transform:translateY(-50%);height:4px;background:linear-gradient(90deg, var(--accent), var(--accent-strong));border-radius:999px;pointer-events:none;z-index:0;transition:width .12s linear;box-shadow:0 1px 6px rgba(111,203,126,.25)}
+.ps-range-fill{position:absolute;left:0;top:50%;transform:translateY(-50%);height:4px;background:var(--dyn-1);border-radius:999px;pointer-events:none;z-index:0;transition:width .12s linear,background-color .5s;box-shadow:0 1px 6px rgba(111,203,126,.25)}
 .ps-controls{display:flex;gap:10px;justify-content:center;align-items:center}
 .ps-controls .icon-btn{width:44px;height:44px;font-size:14px}
 .ps-controls .icon-btn.play{width:56px;height:56px;font-size:18px}
@@ -345,7 +351,8 @@ button.playing .i-pause-icon{display:inline}
 /* Player controls icons */
 .icon-btn{background:transparent;border:1px solid transparent;color:var(--text-secondary);width:36px;height:36px;border-radius:4px;cursor:pointer;display:grid;place-items:center;font-size:12px;transition:all .12s}
 .icon-btn:hover{color:var(--text);background:var(--surface-hover);border-color:var(--border)}
-.icon-btn.play{width:40px;height:40px;background:var(--accent);color:#0c0c0e;border-color:var(--accent);border-radius:50%;font-size:13px;box-shadow:0 2px 8px rgba(111,203,126,.25)}
+.icon-btn.play{width:40px;height:40px;background:var(--dyn-1);color:#0c0c0e;border-color:var(--dyn-1);border-radius:50%;font-size:13px;box-shadow:0 2px 8px rgba(111,203,126,.25);transition:background-color .5s,border-color .5s,transform .12s}
+.icon-btn.play:hover{background:var(--accent-strong);border-color:var(--accent-strong)}
 .icon-btn.play:hover{background:var(--accent-strong);border-color:var(--accent-strong)}
 .icon-btn.active{color:var(--accent);border-color:var(--border);background:var(--surface-active)}
 .progress{display:flex;gap:12px;align-items:center;font-size:11px;color:var(--text-tertiary);font-variant-numeric:tabular-nums}

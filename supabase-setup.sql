@@ -279,5 +279,185 @@ insert into storage.buckets (id, name, public)
 values ('tracks', 'tracks', false)
 on conflict (id) do update set public = false;
 
-drop poli
-...[truncated 7375 chars]
+drop policy if exists "public reads tracks" on storage.objects;
+drop policy if exists "anon uploads tracks blocked" on storage.objects;
+drop policy if exists "authenticated manages tracks" on storage.objects;
+drop policy if exists "owner read track files" on storage.objects;
+drop policy if exists "auth read all track files" on storage.objects;
+drop policy if exists "approved read all track files" on storage.objects;
+drop policy if exists "admin delete track files" on storage.objects;
+-- approved users (+admins) read; laptop uploads via service_role (bypasses RLS)
+create policy "approved read all track files" on storage.objects
+  for select to authenticated using (bucket_id = 'tracks' and public.is_approved());
+create policy "admin delete track files" on storage.objects
+  for delete to authenticated using (bucket_id = 'tracks' and public.is_admin());
+
+-- ============================================================
+-- 7. FUNCTIONS (definer, pinned search_path, least-privilege grants)
+-- ============================================================
+create or replace function public.is_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists(select 1 from public.admin_users where user_id = auth.uid());
+$$;
+revoke all on function public.is_admin() from public;
+grant execute on function public.is_admin() to authenticated;
+
+create or replace function public.is_approved()
+returns boolean language sql stable security definer set search_path = public as $$
+  select public.is_admin()
+     or exists(select 1 from public.approved_users where user_id = auth.uid());
+$$;
+revoke all on function public.is_approved() from public;
+grant execute on function public.is_approved() to authenticated;
+
+-- single guarded version (replaces the old double definition): non-admins get 0 rows
+create or replace function public.get_pending_users()
+returns table (id uuid, email text, created_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select u.id, u.email, u.created_at from auth.users u
+  left join public.approved_users a on a.user_id = u.id
+  left join public.admin_users ad on ad.user_id = u.id
+  where public.is_admin() and a.user_id is null and ad.user_id is null
+  order by u.created_at desc;
+$$;
+revoke all on function public.get_pending_users() from public;
+grant execute on function public.get_pending_users() to authenticated;
+
+-- admin-only recent events with emails (replaces the broken invoker view v_admin_events)
+create or replace function public.get_admin_events(p_limit int default 30)
+returns table (id uuid, track_id uuid, user_id uuid, email text, event text,
+               meta jsonb, created_at timestamptz, title text, artist text)
+language sql stable security definer set search_path = public as $$
+  select e.id, e.track_id, e.user_id, coalesce(e.meta->>'email', u.email),
+         e.event, e.meta, e.created_at, t.title, t.artist
+  from public.track_events e
+  left join auth.users u on u.id = e.user_id
+  left join public.tracks t on t.id = e.track_id
+  where public.is_admin()
+  order by e.created_at desc
+  limit p_limit;
+$$;
+revoke all on function public.get_admin_events(int) from public;
+grant execute on function public.get_admin_events(int) to authenticated;
+
+create or replace function public.get_popular_tracks(p_limit int, p_offset int)
+returns table (id uuid, original_url text, extractor text, extractor_id text,
+  title text, artist text, thumbnail_url text, storage_path text,
+  duration_sec int, file_size bigint, created_at timestamptz, plays bigint)
+language sql stable security definer set search_path = public as $$
+  select t.id, t.original_url, t.extractor, t.extractor_id, t.title, t.artist,
+         t.thumbnail_url, t.storage_path, t.duration_sec, t.file_size, t.created_at,
+         count(e.id) filter (where e.event = 'play') as plays
+  from public.tracks t
+  left join public.track_events e on e.track_id = t.id
+  where public.is_approved()
+  group by t.id
+  order by plays desc nulls last, t.created_at desc
+  limit p_limit offset p_offset;
+$$;
+revoke all on function public.get_popular_tracks(int, int) from public;
+grant execute on function public.get_popular_tracks(int, int) to authenticated;
+
+-- atomic multi-job claim. NOTE semantics: the claim does NOT consume an attempt;
+-- attempts increment only on failure in the worker (single counter, both paths).
+create or replace function public.claim_queue_jobs(p_limit int, p_worker text)
+returns setof public.ingest_queue
+language plpgsql security definer set search_path = public as $$
+begin
+  return query
+  update public.ingest_queue q
+  set status = 'processing', claimed_at = now(), claimed_by = p_worker, error = null
+  where q.id in (
+    select id from public.ingest_queue
+    where status = 'pending'
+      and (next_retry_at is null or next_retry_at <= now())
+    order by created_at
+    limit p_limit
+    for update skip locked
+  )
+  returning q.*;
+end;
+$$;
+revoke all on function public.claim_queue_jobs(int, text) from public;
+grant execute on function public.claim_queue_jobs(int, text) to service_role;
+
+create or replace function public.reap_stale_claims(p_timeout interval default '15 minutes')
+returns int
+language sql security definer set search_path = public as $$
+  with u as (
+    update public.ingest_queue
+    set status = 'pending', claimed_at = null, claimed_by = null, next_retry_at = now()
+    where status = 'processing' and claimed_at < now() - p_timeout
+    returning 1
+  ) select count(*)::int from u;
+$$;
+revoke all on function public.reap_stale_claims(interval) from public;
+grant execute on function public.reap_stale_claims(interval) to service_role;
+
+-- ============================================================
+-- 8. VIEWS (admin dashboard; anon revoked, RLS governs the rest)
+-- ============================================================
+create or replace view public.v_admin_stats as
+  select
+    (select count(*) from public.tracks) as tracks_total,
+    (select count(*) from public.ingest_queue where status = 'pending') as queue_pending,
+    (select count(*) from public.ingest_queue where status = 'error') as queue_errors,
+    (select count(*) from public.ingest_queue where status = 'done') as queue_done,
+    (select count(*) from public.playlists) as playlists_total,
+    (select count(*) from public.track_events where event = 'play') as plays_total,
+    (select count(*) from public.track_events where event = 'view') as views_total,
+    (select count(*) from public.track_events where event = 'queue') as queues_total;
+
+create or replace view public.v_track_leaderboard as
+  select t.id, t.title, t.artist, t.extractor, t.storage_path, t.created_at,
+         count(*) filter (where e.event = 'play') as plays,
+         count(*) filter (where e.event = 'view') as views,
+         count(*) filter (where e.event = 'queue') as queues
+  from public.tracks t
+  left join public.track_events e on e.track_id = t.id
+  group by t.id;
+
+drop view if exists public.v_admin_events; -- replaced by get_admin_events() above
+drop view if exists public.v_pending_users; -- replaced by get_pending_users() above
+revoke all on public.v_admin_stats from anon;
+revoke all on public.v_track_leaderboard from anon;
+
+-- ============================================================
+-- 9. REALTIME (idempotent)
+-- ============================================================
+do $$ begin
+  alter publication supabase_realtime add table public.tracks;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.ingest_queue;
+exception when duplicate_object then null; end $$;
+do $$ begin
+  alter publication supabase_realtime add table public.playlists;
+exception when duplicate_object then null; end $$;
+
+-- ============================================================
+-- 10. BACKFILL (idempotent; skipped automatically when no users exist)
+-- ============================================================
+-- legacy rows without owner → oldest user (visibility unaffected: tracks are approved-global)
+update public.tracks set owner_id = (select id from auth.users order by created_at limit 1)
+  where owner_id is null and exists (select 1 from auth.users);
+update public.playlists set owner_id = (select id from auth.users order by created_at limit 1)
+  where owner_id is null and exists (select 1 from auth.users);
+-- existing users stay unaffected by the approval gate
+insert into public.approved_users(user_id) select id from auth.users on conflict do nothing;
+-- validate URL check (was NOT VALID on old DBs); never aborts setup
+do $$ begin
+  alter table public.ingest_queue validate constraint ingest_queue_url_check;
+exception when others then
+  raise notice 'ingest_queue_url_check NOT VALID: clean bad rows, then VALIDATE CONSTRAINT manually';
+end $$;
+
+-- ============================================================
+-- VERIFY (run as needed)
+--   as anon:                 select * from public.tracks;            -- 0 rows
+--   as new user:             select public.is_approved();            -- false
+--   as approved/admin:       select * from public.tracks;            -- all rows
+--   seed admin (service_role SQL Editor):
+--     insert into public.admin_users(user_id)
+--     select id from auth.users where email='you@example.com' on conflict do nothing;
+-- ============================================================

@@ -118,12 +118,102 @@ $('auth-signup')?.addEventListener('click', async()=>{
   const {error}=await sb.auth.signUp({email,password:pass});
   if(error) $('auth-error').textContent=error.message; else { hideAuth(); toast('Account created — check email if confirmation required'); }
 });
-let authRedirectDone=false;
-function redirectToLogin(){
-  if(authRedirectDone) return;
-  authRedirectDone=true;
-  showAuth('login');
-  toast('Private library — log in to continue');
+// --- Instant-boot snapshot: last library painted before network resolves ---
+// Rendered synchronously when a session exists, then silently revalidated.
+// (Logged-out / unapproved boots never hydrate — gate wipes state instead.)
+const SNAP_KEY='hedge-snap-v1';
+let firstRenderDone=false;
+let _snapT=0;
+function saveSnapshot(){
+  const now=Date.now();
+  if(now-_snapT<2000 || !tracks.length) return;
+  _snapT=now;
+  try{
+    localStorage.setItem(SNAP_KEY, JSON.stringify({
+      uid: currentUser?.id || null,
+      tracks: tracks.slice(0,50), playlists, playlistTracks, ts: now
+    }));
+  }catch{}
+}
+function restoreSnapshot(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SNAP_KEY)||'null');
+    if(!s || !Array.isArray(s.tracks) || !s.tracks.length) return false;
+    // never paint another user's cached library (shared device)
+    if(!currentUser || s.uid !== currentUser.id) return false;
+    tracks=s.tracks;
+    if(Array.isArray(s.playlists)) playlists=s.playlists;
+    if(Array.isArray(s.playlistTracks)) playlistTracks=s.playlistTracks;
+    const tc=$('tracks-count'); if(tc) tc.textContent=tracks.length+'+ tracks';
+    renderPlaylists(); renderTracks();
+    return true;
+  }catch{ return false; }
+}
+function clearSnapshot(){ try{ localStorage.removeItem(SNAP_KEY); }catch{} }
+// --- Resume: now-playing (+position) across reloads. Tap to play (autoplay policy). ---
+const RESUME_KEY='hedge-resume-v1';
+const UI_KEY='hedge-ui-v1';
+let _resumeT=0, _uiT=0;
+function saveResume(force=false){
+  if(!curTrackId || !audio) return;
+  const now=Date.now();
+  if(!force && now-_resumeT<5000) return;
+  _resumeT=now;
+  try{
+    localStorage.setItem(RESUME_KEY, JSON.stringify({
+      id:curTrackId, pos:audio.currentTime||0,
+      q:(window._playQueue||[]).map(t=>t.id).slice(0,200), ts:now
+    }));
+  }catch{}
+}
+function persistUI(){
+  const now=Date.now();
+  if(now-_uiT<500) return;
+  _uiT=now;
+  try{
+    const s=$('search');
+    localStorage.setItem(UI_KEY, JSON.stringify({ y: window.scrollY||0, q: s ? s.value : '' }));
+  }catch{}
+}
+async function restorePlaying(){
+  if(curTrackId) return; // user already started something
+  let r=null;
+  try{ r=JSON.parse(localStorage.getItem(RESUME_KEY)||'null'); }catch{}
+  if(!r?.id || !currentUser) return;
+  const tr=tracks.find(t=>t.id===r.id);
+  if(!tr?.storage_path) return;
+  curTrackId=r.id;
+  const map=new Map(tracks.map(t=>[t.id,t]));
+  const q=Array.isArray(r.q) ? r.q.map(id=>map.get(id)).filter(Boolean) : [];
+  window._playQueue=q.length?q:[tr];
+  queuePos=Math.max(0, window._playQueue.findIndex(t=>t.id===r.id));
+  isPlaying=false;
+  updatePlayerUI(tr);
+  patchPlayingRow();
+  try{
+    const url=await getSignedUrl(tr.storage_path);
+    if(url && curTrackId===r.id && !isPlaying){
+      audio.src=url;
+      const at=Math.max(0, r.pos||0);
+      if(at>1){
+        const apply=()=>{ try{ audio.currentTime=Math.min(at, Math.max(0,(audio.duration||at+1)-0.5)); }catch{} };
+        if(audio.readyState>=1) apply();
+        else audio.addEventListener('loadedmetadata', apply, {once:true});
+      }
+    }
+  }catch{}
+  const artist=$('player-artist');
+  if(artist) artist.textContent=((tr.artist||tr.extractor||'')+' • tap to resume').trim();
+}
+function restoreUIState(){
+  let u=null;
+  try{ u=JSON.parse(localStorage.getItem(UI_KEY)||'null'); }catch{}
+  if(!u) return;
+  try{
+    const s=$('search');
+    if(s && u.q){ s.value=u.q; searchQ=u.q; updateSearchClear(); renderTracks(); }
+    if(u.y>0) requestAnimationFrame(()=> window.scrollTo(0, u.y));
+  }catch{}
 }
 async function isApproved(){
   // fail-CLOSED: any RPC error means "not approved" (locked gate, never open library)
@@ -138,16 +228,20 @@ async function initAuth(){
     const approved = await isApproved();
     if(!approved){
       queue=[]; playlists=[]; playlistTracks=[]; tracks=[];
+      clearSnapshot();
       $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon — you can browse after approval</small></div>`;
       const qc=$('queue-count'); if(qc) qc.textContent='awaiting approval';
       const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Awaiting approval</small>';
       toast('Awaiting admin approval');
       return;
     }
+    restoreSnapshot(); // instant paint from last session, then silent revalidate below
     await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]);
     loadPopular(); // fire-and-forget: fills play badges on rows
+    restoreUIState();
+    restorePlaying();
   }
-  else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to see your private library</small>'; $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in required</div><button id="gate-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`; setTimeout(()=>{ const b=$('gate-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); if(!sessionStorage.getItem('login-redirect')){ sessionStorage.setItem('login-redirect','1'); setTimeout(()=> redirectToLogin(), 400); } },0); }
+  else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; clearSnapshot(); const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to see your private library</small>'; $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in required</div><button id="gate-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`; setTimeout(()=>{ const b=$('gate-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0); }
 }
 sb.auth.onAuthStateChange(async (_event, session)=>{
   currentUser=session?.user||null;
@@ -160,8 +254,8 @@ sb.auth.onAuthStateChange(async (_event, session)=>{
       toast('Awaiting admin approval');
       return;
     }
-    authRedirectDone=false; sessionStorage.removeItem('login-redirect'); await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]); loadPopular();
-  } else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; renderPlaylists(); renderTracks(); if(!authRedirectDone) setTimeout(()=> redirectToLogin(), 200); }
+    sessionStorage.removeItem('login-redirect'); restoreSnapshot(); await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]); loadPopular(); restoreUIState(); restorePlaying();
+  } else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; clearSnapshot(); renderPlaylists(); renderTracks(); }
 });
 initAuth();
 
@@ -368,15 +462,22 @@ setTimeout(()=>{
   if(isStandalone || isDismissed) return;
   if(deferredPrompt) { showPwaBanner(); return; }
   if(!sessionStorage.getItem('pwa-fallback-shown')){
-    sessionStorage.setItem('pwa-fallback-shown','1');
-    const b=$('pwa-banner');
-    if(b){
-      b.style.display='flex';
-      const btn=$('pwa-install');
-      if(btn && !deferredPrompt) { btn.textContent='How to install'; btn.onclick = () => { toast('On phone: browser menu → Add to Home Screen / Install app'); }; }
-    }
+    // wait until the list has painted — no banner pop-in over a blank screen
+    let waits=0;
+    const tick=()=>{
+      if(!firstRenderDone && waits++ < 5){ setTimeout(tick, 1000); return; }
+      if(sessionStorage.getItem('pwa-fallback-shown')) return;
+      sessionStorage.setItem('pwa-fallback-shown','1');
+      const b=$('pwa-banner');
+      if(b){
+        b.style.display='flex';
+        const btn=$('pwa-install');
+        if(btn && !deferredPrompt) { btn.textContent='How to install'; btn.onclick = () => { toast('On phone: browser menu → Add to Home Screen / Install app'); }; }
+      }
+    };
+    setTimeout(tick, 1500);
   }
-}, 1500);
+}, 0);
 
 // --- Queue ingest ---
 $('queue-btn')?.addEventListener('click', queueNow);
@@ -594,6 +695,8 @@ function renderTracks(){
   const el=$('tracks-list');
   if(!el) return;
   ensureTrackDelegation();
+  firstRenderDone=true;
+  saveSnapshot();
   const keepSentinel = el.querySelector('#track-sentinel'); // preserve observer node across innerHTML
   if(!list.length){
     const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
@@ -765,6 +868,7 @@ async function loadPlaylists(){
 function renderPlaylists(){
   const el=$('playlists-list');
   if(!el) return;
+  saveSnapshot();
   if(!currentUser){ el.innerHTML='<small style="color:var(--text-tertiary)">Log in to make your own playlists — library is public to browse</small>'; return; }
   // build list with All tracks on top
   const allCount = tracks.length;
@@ -957,7 +1061,7 @@ function patchPlayingRow(){
 }
 audio.addEventListener('ended', ()=>{ if(repeat) audio.play().catch(()=>{}); else next(); });
 audio.addEventListener('play', ()=>{ isPlaying=true; syncPlayButtons(); patchPlayingRow(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='playing';}catch{} });
-audio.addEventListener('pause', ()=>{ isPlaying=false; syncPlayButtons(); patchPlayingRow(); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='paused';}catch{} });
+audio.addEventListener('pause', ()=>{ isPlaying=false; syncPlayButtons(); patchPlayingRow(); saveResume(true); if('mediaSession' in navigator) try{navigator.mediaSession.playbackState='paused';}catch{} });
 let audioErrRetries = 0;
 audio.addEventListener('error', async ()=>{
   isPlaying=false; syncPlayButtons();
@@ -976,6 +1080,7 @@ audio.addEventListener('error', async ()=>{
 audio.addEventListener('play', ()=>{ audioErrRetries = 0; });
 function onTimeUpdate(){
   if(!isFinite(audio.duration)) return;
+  saveResume(); // throttled internally — powers tap-to-resume after reload
   const cur=fmtTime(audio.currentTime), dur=fmtTime(audio.duration);
   const ct=$('cur-time'); if(ct) ct.textContent=cur;
   const dt=$('dur-time'); if(dt) dt.textContent=dur;
@@ -1186,6 +1291,7 @@ searchInput?.addEventListener('input', ()=>{
   updateSearchClear();
   searchDebounce=setTimeout(async ()=>{
     searchQ=searchInput.value.trim();
+    persistUI();
     renderTracks();
     if(searchQ.length>=2){
       logEvent('search', null, { q: searchQ.slice(0,40), filter });
@@ -1235,6 +1341,9 @@ try{
 // Unconditional loads here caused double-fetch + double-render on every page load (lag).
 // realtime push is primary (see channel above); refresh queue only when tab becomes visible
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && currentUser) loadQueue(); });
+// persist scroll for reload-restore (throttled); flush resume + UI when hidden
+window.addEventListener('scroll', persistUI, {passive:true});
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden'){ saveResume(true); _uiT=0; persistUI(); } });
 
 // SW — explicit scope + error log for Render vs GH Pages
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js', {scope:'./'}).catch(e=>console.warn('SW fail',e));

@@ -33,6 +33,7 @@ let queuePos = 0;
 let curTrackId = null;
 let isPlaying = false;
 let repeat = false;
+let showRemaining = false; // tap total time to toggle remaining
 let pendingSheetTrackId = null;
 const LIKES_KEY='hedge-likes';
 function getLikes(){ try{ return new Set(JSON.parse(localStorage.getItem(LIKES_KEY)||'[]')); }catch{ return new Set(); } }
@@ -1032,6 +1033,16 @@ function updatePlayerUI(tr){
   }
   applyDynamicColor(tr);
   renderUpNext();
+  // inline next-up peek under the controls
+  try{
+    const peek=$('ps-nextup');
+    if(peek){
+      const q=window._playQueue||[];
+      const nxt=q.length>1 ? q[(queuePos+1)%q.length] : null;
+      if(nxt && nxt.id!==curTrackId){ peek.innerHTML=`Next · <b>${esc(nxt.title)}</b> — ${esc(nxt.artist||nxt.extractor||'')}`; peek.style.display=''; }
+      else { peek.innerHTML=''; peek.style.display='none'; }
+    }
+  }catch{}
   syncPlayButtons();
 }
 
@@ -1128,6 +1139,15 @@ function setRepeat(v){
 }
 $('repeat-btn')?.addEventListener('click', ()=>{ vibrate(8); setRepeat(!repeat); toast(repeat?'Repeat on':'Repeat off'); });
 $('repeat-btn-ps')?.addEventListener('click', ()=>{ vibrate(8); setRepeat(!repeat); toast(repeat?'Repeat on':'Repeat off'); });
+// --- Sleep timer (track ⋯ menu) ---
+let sleepTimer=null;
+function setSleep(min){
+  document.querySelectorAll('.sl-btn').forEach(b=>b.classList.toggle('active', (+b.dataset.sleep||0)===min));
+  clearTimeout(sleepTimer); sleepTimer=null;
+  if(min>0){ sleepTimer=setTimeout(()=>{ try{audio.pause();}catch{} toast('Sleep timer — playback stopped'); setSleep(0); }, min*60000); toast(`Sleep in ${min} min`); vibrate(8); }
+  else toast('Sleep timer off');
+}
+document.querySelectorAll('.sl-btn').forEach(b=> b.addEventListener('click', ()=> setSleep(+b.dataset.sleep||0)));
 function patchPlayingRow(){
   document.querySelectorAll('.track.playing').forEach(n=>{ if(n.dataset.id!==curTrackId) n.classList.remove('playing','is-playing'); });
   const row = document.querySelector(`.track[data-id="${CSS.escape(String(curTrackId||''))}"]`);
@@ -1164,7 +1184,7 @@ function onTimeUpdate(){
   saveResume(); // throttled internally — powers tap-to-resume after reload
   const cur=fmtTime(audio.currentTime), dur=fmtTime(audio.duration);
   const ct=$('cur-time'); if(ct) ct.textContent=cur;
-  const dt=$('dur-time'); if(dt) dt.textContent=dur;
+  const dt=$('dur-time'); if(dt) dt.textContent = (showRemaining && isFinite(audio.duration)) ? '-'+fmtTime(Math.max(0, audio.duration-audio.currentTime)) : dur;
   const v=Math.round(audio.currentTime/audio.duration*1000);
   const seek=$('seek'), psSeek=$('ps-seek');
   if(seek){ seek.value=v; seek.style.setProperty('--fill', (v/10)+'%'); }
@@ -1183,6 +1203,7 @@ function seekTo(frac){
   if(isFinite(audio.duration)) audio.currentTime = frac*audio.duration;
 }
 $('seek')?.addEventListener('input', ()=> seekTo($('seek').value/1000));
+$('dur-time')?.addEventListener('click', ()=>{ showRemaining=!showRemaining; vibrate(6); onTimeUpdate(); });
 $('ps-seek')?.addEventListener('input', ()=>{ const v=$('ps-seek').value; seekTo(v/1000); const f=$('ps-fill'); if(f) f.style.width=(v/10)+'%'; });
 $('vol')?.addEventListener('input', ()=> audio.volume=$('vol').value);
 audio.volume=0.9;
@@ -1301,6 +1322,7 @@ function renderUpNext(){
   });
 }
 $('ps-queue-btn')?.addEventListener('click', ()=>{ vibrate(8); openUpNext(); });
+$('ps-nextup')?.addEventListener('click', ()=>{ vibrate(8); openUpNext(); });
 $('upnext-close')?.addEventListener('click', ()=>{ vibrate(6); closeUpNext(); });
 upnextOverlay?.addEventListener('click', closeUpNext);
 $('upnext-clear')?.addEventListener('click', ()=>{

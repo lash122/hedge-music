@@ -202,6 +202,7 @@
       <button id="cache-btn" class="icon-btn" title="Cache for offline" aria-label="Offline"><svg width="18" height="18"><use href="#i-download"/></svg></button>
     </div>
     <div class="ps-queue-hint">Swipe left/right for next • Swipe down to minimize</div>
+    <button id="ps-nextup" class="ps-nextup" aria-label="Open queue"></button>
   </div>
   <div id="player-overlay" class="sheet-overlay" style="display:none"></div>
 
@@ -247,6 +248,16 @@
     <div class="as-actions">
       <button id="as-play" class="as-btn">▶ Play</button>
       <button id="as-next" class="as-btn">⏭ Play next</button>
+      <div class="as-divider"></div>
+      <div class="as-sleep">
+        <span class="as-sleep-label">Sleep</span>
+        <div class="as-sleep-btns" role="group" aria-label="Sleep timer">
+          <button class="mini sl-btn" data-sleep="0">Off</button>
+          <button class="mini sl-btn" data-sleep="15">15</button>
+          <button class="mini sl-btn" data-sleep="30">30</button>
+          <button class="mini sl-btn" data-sleep="60">60</button>
+        </div>
+      </div>
       <div class="as-divider"></div>
       <div id="as-playlists" class="as-playlists"></div>
       <button id="as-close" class="btn btn-ghost" style="width:100%;margin-top:8px">Close</button>

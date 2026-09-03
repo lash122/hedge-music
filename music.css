@@ -206,6 +206,34 @@ a{color:var(--text)}
 #refresh-btn.spinning svg{animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.skeleton,#refresh-btn.spinning svg{animation:none}.track{animation:none}.ps-track-title.marquee>span{animation:none}.player-sheet,.action-sheet{transition-duration:.01s}}
+/* boot splash — brand cover until first paint settles */
+.boot-splash{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;transition:opacity .45s ease}
+.boot-splash img{border-radius:18px;box-shadow:0 12px 44px rgba(0,0,0,.5);animation:splashPulse 1.6s ease-in-out infinite}
+.boot-splash span{font-family:var(--font-display);font-weight:700;letter-spacing:.28em;font-size:13px;color:var(--text-secondary)}
+.boot-splash.hide{opacity:0;pointer-events:none}
+@keyframes splashPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+/* glass surfaces (solid fallback first) */
+.player-bar{background:var(--surface);background:color-mix(in srgb, var(--surface) 84%, transparent)}
+.player-sheet{background:var(--bg);background:color-mix(in srgb, var(--bg) 88%, transparent)}
+.action-sheet{background:var(--surface);background:color-mix(in srgb, var(--surface) 88%, transparent)}
+@supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)){
+  .player-bar,.player-sheet,.action-sheet{backdrop-filter:blur(20px) saturate(1.25);-webkit-backdrop-filter:blur(20px) saturate(1.25)}
+}
+/* progress ring on mini play */
+#play-btn .play-ring{position:absolute;inset:-3px;width:calc(100% + 6px);height:calc(100% + 6px);transform:rotate(-90deg);pointer-events:none}
+.play-ring circle{fill:none;stroke-width:2.5}
+.pr-bg{stroke:var(--border)}
+.pr-fg{stroke:var(--dyn-1);stroke-linecap:round;stroke-dasharray:119.4;stroke-dashoffset:119.4}
+/* toast refresh */
+#toast{border-radius:12px;background:var(--surface);background:color-mix(in srgb, var(--surface) 86%, transparent)}
+@supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)){
+  #toast{backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+}
+#toast.show{animation:toastIn .32s cubic-bezier(.22,1,.36,1)}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px) scale(.96)}to{opacity:1;transform:translateX(-50%)}}
+/* visible keyboard focus */
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--dyn-1);outline-offset:2px}
+@media(prefers-reduced-motion:reduce){.boot-splash img{animation:none}#toast.show{animation:none}}
 .empty code{color:var(--text-secondary)}
 
 /* Player bar - desktop flex, phone mini */

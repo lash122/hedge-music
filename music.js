@@ -151,6 +151,13 @@ function restoreSnapshot(){
   }catch{ return false; }
 }
 function clearSnapshot(){ try{ localStorage.removeItem(SNAP_KEY); }catch{} }
+let _splashHidden=false;
+function hideSplash(){
+  if(_splashHidden) return; _splashHidden=true;
+  const s=$('boot-splash'); if(!s) return;
+  s.classList.add('hide');
+  setTimeout(()=>s.remove(), 650);
+}
 // --- Resume: now-playing (+position) across reloads. Tap to play (autoplay policy). ---
 const RESUME_KEY='hedge-resume-v1';
 const UI_KEY='hedge-ui-v1';
@@ -258,7 +265,8 @@ sb.auth.onAuthStateChange(async (_event, session)=>{
     sessionStorage.removeItem('login-redirect'); restoreSnapshot(); await Promise.all([loadQueue(), loadPlaylists(), loadTracks()]); loadPopular(); restoreUIState(); restorePlaying();
   } else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; clearSnapshot(); renderPlaylists(); renderTracks(); }
 });
-initAuth();
+initAuth().finally(()=>hideSplash()).catch(()=>hideSplash());
+setTimeout(()=>hideSplash(), 5000); // safety: never trap the user behind the splash
 
 // --- Helpers ---
 function publicUrl(storagePath){
@@ -1250,6 +1258,8 @@ function onTimeUpdate(){
   const seek=$('seek'), psSeek=$('ps-seek');
   if(seek){ seek.value=v; seek.style.setProperty('--fill', (v/10)+'%'); }
   if(psSeek) psSeek.value=v;
+  const ring=$('play-ring-fg');
+  if(ring) ring.style.strokeDashoffset=(119.4*(1-(audio.currentTime/audio.duration))).toFixed(1);
   const fill=$('ps-fill'); if(fill) fill.style.width=(audio.currentTime/audio.duration*100)+'%';
   // row progress line
   const bar=document.querySelector(`.t-progress-bar[data-bar="${CSS.escape(curTrackId||'')}"]`);

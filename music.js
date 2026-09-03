@@ -42,8 +42,21 @@ function toggleLike(id){
   if(likes.has(id)) likes.delete(id); else likes.add(id);
   try{ localStorage.setItem(LIKES_KEY, JSON.stringify([...likes])); }catch{}
   vibrate(8);
-  renderTracks();
-  toast(likes.has(id) ? '♥ Liked' : '♡ Unliked');
+  const liked = likes.has(id);
+  // fast path: patch like buttons in place — no full list rebuild (keeps scroll + smooth)
+  let patched = false;
+  document.querySelectorAll(`[data-like="${CSS.escape(String(id))}"]`).forEach(btn=>{
+    patched = true;
+    btn.classList.toggle('liked', liked);
+    const use = btn.querySelector('use');
+    if(use) use.setAttribute('href', liked ? '#i-heart-filled' : '#i-heart');
+    btn.setAttribute('aria-label', liked ? 'Unlike' : 'Like');
+  });
+  // Likes tab needs a re-render (row appears/disappears); otherwise skip it
+  const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
+  if(isLikesView || !patched) renderTracks();
+  else patchPlayingRow();
+  toast(liked ? '♥ Liked' : '♡ Unliked');
 }
 
 // --- Auth ---
@@ -437,11 +450,14 @@ function trackSentinel(){
     }).observe(el);
   }
 }
-async function loadTracks(reset=true){
+async function loadTracks(reset=true, opts={}){
   if(!reset && (tracksLoading || tracksAllLoaded)) return; // page fetch: skip while one is in flight — observer retries
   const epoch = ++tracksEpoch;   // this call supersedes any in-flight response (reset beats stale page)
   tracksLoading=true;
-  if(reset){ tracksPage=0; tracksAllLoaded=false; tracks=[]; showSkeleton(); }
+  const silent = !!opts.silent;
+  // Smooth refresh: keep old rows on screen while revalidating.
+  // Only show skeleton on true first load (empty list). Refresh just spins the button.
+  if(reset){ tracksPage=0; tracksAllLoaded=false; if(!tracks.length && !silent) showSkeleton(); }
   try{
   const start = tracksPage*TRACK_PAGE;
   const { data, error } = await sb.from('tracks')
@@ -457,7 +473,16 @@ async function loadTracks(reset=true){
     return;
   }
   if(!data || !data.length) tracksAllLoaded=true;
-  if(reset) tracks = data||[];
+  if(reset){
+    // skip re-render when nothing changed — refresh feels instant, no flicker
+    const prevSig = tracks.length ? tracks.map(t=>t.id).join(',') : null;
+    const nextSig = (data||[]).map(t=>t.id).join(',');
+    tracks = data||[];
+    if(prevSig === nextSig && !opts.forceRender){
+      const tc0=$('tracks-count'); if(tc0) tc0.textContent = tracks.length+' tracks';
+      return;
+    }
+  }
   else{
     const known = new Set(tracks.map(t=>t.id));
     tracks = [...tracks, ...(data||[]).filter(t=>!known.has(t.id))]; // deduped merge — no repeats on races/edge ties
@@ -551,10 +576,19 @@ async function removeFromPlaylist(pid, tid){
   toast('Removed from playlist');
   await loadPlaylists();
 }
+function clearAllFilters(){
+  const s=$('search'); if(s) s.value='';
+  searchQ=''; filter='all'; activePlaylistId=null;
+  document.querySelectorAll('.chip').forEach(c=>{c.classList.remove('active'); c.setAttribute('aria-selected','false')});
+  const all=document.querySelector('[data-filter=all]');
+  if(all){all.classList.add('active'); all.setAttribute('aria-selected','true')}
+  updateListHead(); renderPlaylists(); renderTracks(); updateSearchClear();
+}
 function renderTracks(){
   const list = filteredTracks();
   const el=$('tracks-list');
   if(!el) return;
+  ensureTrackDelegation();
   const keepSentinel = el.querySelector('#track-sentinel'); // preserve observer node across innerHTML
   if(!list.length){
     const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
@@ -565,17 +599,15 @@ function renderTracks(){
     }
     if(isFiltered){
       el.innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><div>No tracks match</div><small style="color:var(--text-tertiary)">Try clearing search or filter</small><button id="clear-filters-btn" class="btn btn-ghost" style="margin-top:8px">Clear filters</button></div>`;
-      setTimeout(()=>{ const b=$('clear-filters-btn'); if(b) b.addEventListener('click', ()=>{ const s=$('search'); if(s) s.value=''; searchQ=''; filter='all'; activePlaylistId=null; document.querySelectorAll('.chip').forEach(c=>{c.classList.remove('active'); c.setAttribute('aria-selected','false')}); const all=document.querySelector('[data-filter=all]'); if(all){all.classList.add('active'); all.setAttribute('aria-selected','true')} updateListHead(); renderPlaylists(); renderTracks(); updateSearchClear(); }); }, 0);
     } else {
       el.innerHTML=`<div class="empty"><div class="empty-icon">♪</div><div>No tracks yet</div><small style="color:var(--text-tertiary)">Queue a URL and run your laptop ingest</small><button id="empty-queue-btn" class="btn btn-main" style="margin-top:8px">＋ Queue first track</button></div>`;
-      setTimeout(()=>{ const b=$('empty-queue-btn'); if(b) b.addEventListener('click', ()=> setIngest(true)); }, 0);
     }
     return;
   }
   el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
     const playingClass = isCur ? 'playing' + (isPlaying ? ' is-playing' : '') : '';
-    const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" alt="">` : `<div style="width:64px;height:64px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`;
+    const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" decoding="async" width="64" height="64" alt="">` : `<div style="width:64px;height:64px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`;
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
     const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const plays = popularCache?.get(tr.id) || 0;
@@ -600,37 +632,39 @@ function renderTracks(){
   }).join('');
   if(keepSentinel) el.appendChild(keepSentinel); // re-attach before rows' end so observer keeps working
   else trackSentinel(); // first render creates it
-  el.querySelectorAll('.track').forEach(node=>{
-    node.addEventListener('click', e=>{
-      if(e.target.closest('[data-more]') || e.target.closest('[data-play]')) return;
-      vibrate(8);
-      if(node.dataset.id === curTrackId){
-        openPlayerSheet();
-      } else {
-        playTrack(node.dataset.id);
-      }
-    });
-  });
-  el.querySelectorAll('[data-play]').forEach(btn=>{
-    btn.addEventListener('click', e=>{
+  ensureTrackDelegation();
+}
+
+// Single delegated click handler — attaching ~200 listeners per render was the main jank source
+function ensureTrackDelegation(){
+  const el=$('tracks-list');
+  if(!el || el._delegated) return;
+  el._delegated = true;
+  el.addEventListener('click', e=>{
+    const likeBtn = e.target.closest('[data-like]');
+    if(likeBtn){ e.stopPropagation(); toggleLike(likeBtn.getAttribute('data-like')); return; }
+    const moreBtn = e.target.closest('[data-more]');
+    if(moreBtn){ e.stopPropagation(); vibrate(8); openTrackSheet(moreBtn.getAttribute('data-more')); return; }
+    const playBtn = e.target.closest('[data-play]');
+    if(playBtn){
       e.stopPropagation();
       vibrate(8);
-      const id=btn.getAttribute('data-play');
+      const id=playBtn.getAttribute('data-play');
       if(id===curTrackId && isPlaying){ audio.pause(); } else { playTrack(id); }
-    });
-  });
-  el.querySelectorAll('[data-more]').forEach(btn=>{
-    btn.addEventListener('click', e=>{
-      e.stopPropagation();
+      return;
+    }
+    const clearBtn = e.target.closest('#clear-filters-btn');
+    if(clearBtn){ vibrate(8); clearAllFilters(); return; }
+    const qBtn = e.target.closest('#empty-queue-btn');
+    if(qBtn){ vibrate(8); setIngest(true); return; }
+    const loginBtn = e.target.closest('#empty-login-btn');
+    if(loginBtn){ showAuth('login'); return; }
+    const row = e.target.closest('.track');
+    if(row?.dataset?.id){
       vibrate(8);
-      openTrackSheet(btn.getAttribute('data-more'));
-    });
-  });
-  el.querySelectorAll('[data-like]').forEach(btn=>{
-    btn.addEventListener('click', e=>{
-      e.stopPropagation();
-      toggleLike(btn.getAttribute('data-like'));
-    });
+      if(row.dataset.id === curTrackId) openPlayerSheet();
+      else playTrack(row.dataset.id);
+    }
   });
 }
 
@@ -838,7 +872,7 @@ async function playTrack(id){
   audio.play().catch(e=>{ toast.error('Playback failed'); console.warn(e); isPlaying=false; syncPlayButtons(); });
   isPlaying=true;
   updatePlayerUI(tr);
-  renderTracks();
+  patchPlayingRow(); // was renderTracks(): full rebuild killed scroll + caused flicker on every play
   logEvent('play', tr.id, { extractor: tr.extractor, title: tr.title?.slice(0,60) });
   if('mediaSession' in navigator){
     try {
@@ -1127,19 +1161,39 @@ document.querySelectorAll('.chip').forEach(c=> c.addEventListener('click', ()=>{
   c.classList.add('active'); c.setAttribute('aria-selected','true');
   filter=c.dataset.filter; renderTracks();
 }));
-$('refresh-btn')?.addEventListener('click', async()=>{ await Promise.all([loadTracks(), loadQueue(), loadPlaylists()]); popularCache=null; await loadPopular(); toast('Refreshed'); });
+let _refreshing = false;
+$('refresh-btn')?.addEventListener('click', async()=>{
+  if(_refreshing) return;
+  const btn = $('refresh-btn');
+  _refreshing = true;
+  btn?.classList.add('spinning');
+  btn?.setAttribute('disabled','true');
+  try{
+    // keep old list on screen (no skeleton), invalidate popular first so only ONE render happens
+    popularCache = null;
+    await Promise.all([loadTracks(true, {silent:true}), loadQueue(), loadPlaylists()]);
+    await loadPopular();
+    toast('Refreshed');
+  } finally {
+    _refreshing = false;
+    btn?.classList.remove('spinning');
+    btn?.removeAttribute('disabled');
+  }
+});
 
-// --- Realtime ---
+// --- Realtime (debounced: ingest inserts N rows fast — old code did full wipe+render per row) ---
+let _rtTracksT = null, _rtQueueT = null, _rtPlT = null;
 try{
   sb.channel('music-changes')
-    .on('postgres_changes', {event:'*', schema:'public', table:'tracks'}, ()=> loadTracks())
-    .on('postgres_changes', {event:'*', schema:'public', table:'ingest_queue'}, ()=> loadQueue())
-    .on('postgres_changes', {event:'*', schema:'public', table:'playlists'}, ()=> loadPlaylists())
+    .on('postgres_changes', {event:'*', schema:'public', table:'tracks'}, ()=>{ clearTimeout(_rtTracksT); _rtTracksT=setTimeout(()=> loadTracks(true, {silent:true}), 500); })
+    .on('postgres_changes', {event:'*', schema:'public', table:'ingest_queue'}, ()=>{ clearTimeout(_rtQueueT); _rtQueueT=setTimeout(()=> loadQueue(), 500); })
+    .on('postgres_changes', {event:'*', schema:'public', table:'playlists'}, ()=>{ clearTimeout(_rtPlT); _rtPlT=setTimeout(()=> loadPlaylists(), 500); })
     .subscribe();
 }catch{}
 
 // --- Init ---
-loadTracks(); loadQueue(); loadPlaylists();
+// NOTE: initAuth() already loads tracks/queue/playlists after session check.
+// Unconditional loads here caused double-fetch + double-render on every page load (lag).
 // realtime push is primary (see channel above); refresh queue only when tab becomes visible
 document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && currentUser) loadQueue(); });
 

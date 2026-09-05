@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://mgwaehtmdecvptzzigwv.supabase.co">
   <link rel="preconnect" href="https://i.ytimg.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="music.css?v=42">
+  <link rel="stylesheet" href="music.css?v=43">
 </head>
 <body>
   <svg style="display:none" aria-hidden="true">
@@ -107,11 +107,10 @@
           <input id="search" placeholder="Search title, artist…" autocomplete="off" enterkeyhint="search">
           <button id="search-clear" class="search-clear" aria-label="Clear search" style="display:none"><svg width="12" height="12"><use href="#i-x"/></svg></button>
         </div>
-        <div class="filters" role="tablist" aria-label="Source filter">
-          <button class="chip active" data-filter="all" role="tab" aria-selected="true">All</button>
-          <button class="chip" data-filter="youtube" role="tab">YouTube</button>
-          <button class="chip" data-filter="soundcloud" role="tab">SoundCloud</button>
-          <button class="chip" data-filter="bandcamp" role="tab">Bandcamp</button>
+        <div class="filters" role="tablist" aria-label="Library view">
+          <button class="chip active" data-filter="recent" role="tab" aria-selected="true">Recently added</button>
+          <button class="chip" data-filter="popular" role="tab" aria-selected="false">Most played</button>
+          <button class="chip" data-filter="likes" role="tab" aria-selected="false">Likes<span class="chip-count" id="likes-count"></span></button>
         </div>
       </div>
     </aside>
@@ -121,7 +120,6 @@
         <div class="list-head">
           <h3 id="list-title">All tracks</h3>
           <div class="head-actions">
-            <button id="sort-popular-btn" class="btn btn-ghost" title="Sort by plays"><svg width="13" height="13"><use href="#i-fire"/></svg><span>Popular</span></button>
             <button id="play-all-btn" class="btn btn-ghost btn-icon-only" title="Play all" aria-label="Play all"><svg width="16" height="16"><use href="#i-play-circle"/></svg></button>
             <button id="shuffle-btn" class="btn btn-ghost btn-icon-only" title="Shuffle" aria-label="Shuffle"><svg width="16" height="16"><use href="#i-shuffle"/></svg></button>
             <button id="refresh-btn" class="btn btn-ghost btn-icon-only" title="Refresh" aria-label="Refresh"><svg width="16" height="16"><use href="#i-refresh"/></svg></button>
@@ -301,6 +299,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-  <script src="music.js?v=35" defer></script>
+  <script src="music.js?v=36" defer></script>
 </body>
 </html>

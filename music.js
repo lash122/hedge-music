@@ -21,13 +21,12 @@ function vibrate(p=10){ try{ navigator.vibrate&&navigator.vibrate(p);}catch{} }
 
 // --- State ---
 let tracks = [];
-let popularSort = false;      // 🔥 sort by plays (get_popular_tracks RPC)
 let popularCache = null;      // Map trackId -> plays, fetched once per session
 let queue = [];
 let playlists = [];
 let playlistTracks = [];
 let activePlaylistId = null;
-let filter = 'all';
+let filter = 'recent';    // smart views: recent | popular | likes
 let searchQ = '';
 let queuePos = 0;
 let curTrackId = null;
@@ -56,6 +55,7 @@ function toggleLike(id){
   const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
   if(isLikesView || !patched) renderTracks();
   else patchPlayingRow();
+  updateLikesCount();
   toast(liked ? 'Added to Likes' : 'Removed from Likes');
 }
 
@@ -323,7 +323,7 @@ document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState=
 
 // --- Mobile Tabs ---
 const MOBILE_TABS=['library','playlists','likes'];
-function setMobileTab(tab){
+function setMobileTab(tab, keepFilter){
   document.body.setAttribute('data-mobile-tab', tab);
   document.querySelectorAll('.bottom-tabs .tab').forEach(b=>{
     const active=b.dataset.tab===tab;
@@ -332,6 +332,18 @@ function setMobileTab(tab){
   });
   try{ localStorage.setItem('hedge-tab', tab); }catch{}
   if(location.hash!=='#'+tab) history.replaceState(null,'','#'+tab);
+  // keep Library chips in sync with tabs (likes <-> likes chip, library <-> recent),
+  // unless the caller just set the filter from a chip (keepFilter)
+  const chipFor = tab==='likes' ? 'likes' : (tab==='library' ? 'recent' : null);
+  if(chipFor && isMobile() && !keepFilter){
+    filter=chipFor;
+    document.querySelectorAll('.chip').forEach(x=>{
+      const on=x.dataset.filter===chipFor;
+      x.classList.toggle('active', on);
+      x.setAttribute('aria-selected', on?'true':'false');
+    });
+    updateLikesCount();
+  }
   updateListHead();
   renderTracks();
 }
@@ -628,8 +640,8 @@ async function ensurePlaylistTracksLoaded(ids){
 
 function filteredTracks(){
   let t = tracks;
-  // mobile Likes tab: only liked songs
-  if(isMobile() && document.body.getAttribute('data-mobile-tab')==='likes'){
+  // Likes view: chip on desktop, bottom-tab on mobile
+  if(filter==='likes' || (isMobile() && document.body.getAttribute('data-mobile-tab')==='likes')){
     t = t.filter(x=>likes.has(x.id));
   }
   if(activePlaylistId){
@@ -639,13 +651,12 @@ function filteredTracks(){
     t = [...t].sort((a,b)=>(pos[a.id]||0)-(pos[b.id]||0));
     ensurePlaylistTracksLoaded([...ids]); // pagination guard: fetch any tracks not yet paged in
   }
-  if(filter!=='all') t = t.filter(x=>(x.extractor||'').toLowerCase()===filter);
   if(searchQ) {
     const q=searchQ.toLowerCase();
     t = t.filter(x=> (x.title||'').toLowerCase().includes(q) || (x.artist||'').toLowerCase().includes(q) || (x.extractor||'').toLowerCase().includes(q));
   }
-  // 🔥 popular sort: order by plays (falls back to newest when no plays)
-  if(popularSort) t = [...t].sort((a,b)=>((popularCache?.get(b.id))||0)-((popularCache?.get(a.id))||0));
+  // Most played: order by plays (falls back to newest when no plays yet)
+  if(filter==='popular') t = [...t].sort((a,b)=>((popularCache?.get(b.id))||0)-((popularCache?.get(a.id))||0));
   // safety net: never emit duplicate rows regardless of merge path
   const seen = new Set();
   return t.filter(x=>{ if(seen.has(x.id)) return false; seen.add(x.id); return true; });
@@ -661,15 +672,15 @@ async function loadPopular(){
     renderTracks();
   }catch(e){ console.warn('popular', e.message); }
 }
-$('sort-popular-btn')?.addEventListener('click', async()=>{
-  vibrate(8);
-  popularSort = !popularSort;
-  const btn=$('sort-popular-btn');
-  if(btn){ btn.classList.toggle('is-on', popularSort); btn.setAttribute('aria-pressed', popularSort ? 'true' : 'false'); }
-  if(popularSort && !popularCache) await loadPopular();
-  updateListHead(); renderTracks();
-  toast(popularSort ? 'Sorted by plays' : 'Newest first');
-});
+let _likesCountShown = -1;
+function updateLikesCount(){
+  const el=$('likes-count');
+  if(!el) return;
+  const n=likes.size;
+  if(n===_likesCountShown) return;
+  _likesCountShown=n;
+  el.textContent = n ? ` · ${n}` : '';
+}
 
 async function removeFromPlaylist(pid, tid){
   if(!pid || !tid) return;
@@ -685,10 +696,10 @@ async function removeFromPlaylist(pid, tid){
 }
 function clearAllFilters(){
   const s=$('search'); if(s) s.value='';
-  searchQ=''; filter='all'; activePlaylistId=null;
+  searchQ=''; filter='recent'; activePlaylistId=null;
   document.querySelectorAll('.chip').forEach(c=>{c.classList.remove('active'); c.setAttribute('aria-selected','false')});
-  const all=document.querySelector('[data-filter=all]');
-  if(all){all.classList.add('active'); all.setAttribute('aria-selected','true')}
+  const recent=document.querySelector('[data-filter=recent]');
+  if(recent){recent.classList.add('active'); recent.setAttribute('aria-selected','true')}
   updateListHead(); renderPlaylists(); renderTracks(); updateSearchClear();
 }
 function renderTracks(){
@@ -697,11 +708,12 @@ function renderTracks(){
   if(!el) return;
   ensureTrackDelegation();
   firstRenderDone=true;
+  updateLikesCount();
   saveSnapshot();
   const keepSentinel = el.querySelector('#track-sentinel'); // preserve observer node across innerHTML
   if(!list.length){
     const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
-    const isFiltered = isLikesView || activePlaylistId || filter!=='all' || searchQ;
+    const isFiltered = isLikesView || activePlaylistId || filter!=='recent' || searchQ;
     if(isLikesView){
       el.innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-heart"/></svg></div><div><strong>No liked songs yet</strong></div><small>Tap the heart on any track and it will show up here.</small></div>`;
       return;
@@ -943,7 +955,7 @@ function updateListHead(){
     titleEl.style.display='none';
   } else {
     const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
-    titleEl.textContent = isLikesView ? 'Liked' : (popularSort ? 'Most played' : 'All tracks');
+    titleEl.textContent = (isLikesView || filter==='likes') ? 'Liked' : (filter==='popular' ? 'Most played' : 'Recently added');
     titleEl.style.display='';
     if(back) back.style.display='none';
   }
@@ -1320,11 +1332,16 @@ searchInput?.addEventListener('input', ()=>{
     }
   }, 160);
 });
-document.querySelectorAll('.chip').forEach(c=> c.addEventListener('click', ()=>{
+document.querySelectorAll('.chip').forEach(c=> c.addEventListener('click', async ()=>{
   vibrate(5);
   document.querySelectorAll('.chip').forEach(x=>{ x.classList.remove('active'); x.setAttribute('aria-selected','false'); });
   c.classList.add('active'); c.setAttribute('aria-selected','true');
-  filter=c.dataset.filter; renderTracks();
+  filter=c.dataset.filter;
+  updateLikesCount();
+  if(filter==='popular' && !popularCache) await loadPopular();
+  // on phones the track list lives under bottom tabs — route there, keeping the chip filter
+  if(isMobile()){ setMobileTab(filter==='likes' ? 'likes' : 'library', true); return; }
+  updateListHead(); renderTracks();
 }));
 let _refreshing = false;
 $('refresh-btn')?.addEventListener('click', async()=>{

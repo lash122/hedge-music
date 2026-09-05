@@ -17,8 +17,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://mgwaehtmdecvptzzigwv.supabase.co">
   <link rel="preconnect" href="https://i.ytimg.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="music.css?v=28">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="music.css?v=32">
 </head>
 <body>
   <svg style="display:none" aria-hidden="true">
@@ -38,17 +38,24 @@
     <symbol id="i-play-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l6-3.5-6-3.5z" fill="currentColor" stroke="none"/></symbol>
     <symbol id="i-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/></symbol>
+    <symbol id="i-dots" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+    <symbol id="i-fire" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4.4 0 7.5-3 7.5-7.2 0-3.1-1.9-5.4-3.7-7C14.1 6.2 13 4.5 13 2c-3 2-4.5 4.2-5.3 6.3C6.6 9.4 6 10.6 6 12.2 6 17 8.9 22 12 22z"/><path d="M12 22c-1.8 0-3.2-1.4-3.2-3.2 0-1.3.8-2.3 1.6-3 .7-.6 1.6-1.2 1.6-2.3 1.2.8 2.2 1.9 2.6 3.1.3.9.6 1.7.6 2.6 0 1.6-1.4 2.8-3.2 2.8z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.4 1z"/></symbol>
   </svg>
   <header class="topbar">
     <div class="brand">
-      <img src="icons/icon-192.png" alt="" width="30" height="30" style="border-radius:6px;flex-shrink:0">
+      <img src="icons/icon-192.png" alt="" width="26" height="26">
       <span class="brand-text">HEDGE MUSIC</span>
     </div>
     <div class="top-actions">
       <span id="net-dot" class="net-dot online" title="Online"></span>
       <span id="queue-badge" class="badge" style="display:none">0 queued</span>
-      <span id="storage-hint" class="hint">1GB • ~200 TRACKS</span>
-      <button id="toggle-ingest" class="btn btn-ghost btn-icon desktop-only" aria-expanded="false" aria-controls="ingest-panel" title="Queue new track">＋ Queue</button>
+      <span id="storage-hint" class="hint">1GB · ~200 tracks</span>
+      <button id="toggle-ingest" class="btn btn-ghost btn-icon desktop-only" aria-expanded="false" aria-controls="ingest-panel" title="Queue new track"><svg width="13" height="13"><use href="#i-plus"/></svg><span>Queue</span></button>
       <span id="auth-area" class="auth-area"></span>
       <button id="install-btn" class="btn btn-ghost" style="display:none">Install</button>
     </div>
@@ -62,11 +69,11 @@
         <h2>Queue</h2>
         <button id="close-ingest" class="btn btn-ghost">Close</button>
       </div>
-      <p class="sub">Paste any link. Queued as pending, ingested when laptop runs <code>node tools/ingest.js --watch</code>.</p>
+      <p class="sub">Paste any link. It queues as pending and is ingested when your laptop runs <code>node tools/ingest.js --watch</code>.</p>
       <div class="ingest-row">
         <div class="input-wrap">
-          <input id="yt-url" type="url" placeholder="Paste link — youtube, soundcloud, bandcamp..." autocomplete="off" spellcheck="false" enterkeyhint="done">
-          <button id="paste-btn" class="btn btn-ghost" type="button" style="padding:7px 10px;white-space:nowrap">Paste</button>
+          <input id="yt-url" type="url" placeholder="Paste link — YouTube, SoundCloud, Bandcamp…" autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="Track URL">
+          <button id="paste-btn" class="btn btn-ghost" type="button">Paste</button>
         </div>
         <button id="queue-btn" class="btn btn-main"><span>Queue</span></button>
       </div>
@@ -81,8 +88,8 @@
       <div class="card card-playlists" data-mobile-panel="playlists">
         <h3>Playlists</h3>
         <div class="row">
-          <input id="new-playlist-name" placeholder="New playlist name" enterkeyhint="done">
-          <button id="create-playlist-btn" class="btn btn-ghost">+</button>
+          <input id="new-playlist-name" placeholder="New playlist name" enterkeyhint="done" aria-label="New playlist name">
+          <button id="create-playlist-btn" class="btn btn-ghost btn-icon-only" aria-label="Create playlist"><svg width="14" height="14"><use href="#i-plus"/></svg></button>
         </div>
         <div id="playlists-list" class="playlists"></div>
       </div>
@@ -92,9 +99,9 @@
           <span class="meta"><span id="tracks-count">0 tracks</span> · <span id="queue-count">0 pending</span></span>
         </div>
         <div class="search-wrap">
-          <svg width="16" height="16" style="position:absolute;left:10px;pointer-events:none;color:var(--text-tertiary)"><use href="#i-search"/></svg>
-          <input id="search" placeholder="Search title / artist / extractor" autocomplete="off" enterkeyhint="search" style="padding-left:32px">
-          <button id="search-clear" class="search-clear" aria-label="Clear search" style="display:none">✕</button>
+          <span class="search-ico"><svg width="15" height="15"><use href="#i-search"/></svg></span>
+          <input id="search" placeholder="Search title, artist…" autocomplete="off" enterkeyhint="search">
+          <button id="search-clear" class="search-clear" aria-label="Clear search" style="display:none"><svg width="12" height="12"><use href="#i-x"/></svg></button>
         </div>
         <div class="filters" role="tablist" aria-label="Source filter">
           <button class="chip active" data-filter="all" role="tab" aria-selected="true">All</button>
@@ -110,25 +117,24 @@
         <div class="list-head">
           <h3 id="list-title">All tracks</h3>
           <div class="head-actions">
-            <button id="sort-popular-btn" class="btn btn-ghost" title="Sort by plays">🔥 Popular</button>
+            <button id="sort-popular-btn" class="btn btn-ghost" title="Sort by plays"><svg width="13" height="13"><use href="#i-fire"/></svg><span>Popular</span></button>
             <button id="play-all-btn" class="btn btn-ghost btn-icon-only" title="Play all" aria-label="Play all"><svg width="16" height="16"><use href="#i-play-circle"/></svg></button>
             <button id="shuffle-btn" class="btn btn-ghost btn-icon-only" title="Shuffle" aria-label="Shuffle"><svg width="16" height="16"><use href="#i-shuffle"/></svg></button>
             <button id="refresh-btn" class="btn btn-ghost btn-icon-only" title="Refresh" aria-label="Refresh"><svg width="16" height="16"><use href="#i-refresh"/></svg></button>
           </div>
         </div>
         <div class="tracks-header">
-          <span style="width:64px"></span>
+          <span style="width:52px"></span>
           <span>Song</span>
-          <span style="margin-left:auto;font-variant-numeric:tabular-nums">Duration</span>
         </div>
-        <div id="tracks-list" class="tracks"><div class="track skeleton" style="pointer-events:none"><div style="width:46px;height:46px;border-radius:6px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div><div class="track skeleton" style="pointer-events:none"><div style="width:46px;height:46px;border-radius:6px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div><div class="track skeleton" style="pointer-events:none"><div style="width:46px;height:46px;border-radius:6px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div></div>
+        <div id="tracks-list" class="tracks"><div class="track skeleton" style="pointer-events:none"><div style="width:52px;height:52px;border-radius:8px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div><div class="track skeleton" style="pointer-events:none"><div style="width:52px;height:52px;border-radius:8px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div><div class="track skeleton" style="pointer-events:none"><div style="width:52px;height:52px;border-radius:8px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div></div>
       </div>
     </main>
   </div>
 
   <!-- Mobile FAB — sole entry to queue sheet, dot = pending jobs -->
   <button id="fab-queue" class="fab" aria-label="Queue new track">
-    <svg width="24" height="24"><use href="#i-plus"/></svg>
+    <svg width="22" height="22"><use href="#i-plus"/></svg>
     <span id="fab-queue-dot" class="fab-dot" style="display:none"></span>
   </button>
 
@@ -165,7 +171,7 @@
       <button id="next-btn" class="icon-btn" aria-label="Next"><svg width="18" height="18"><use href="#i-next"/></svg></button>
       <div class="player-right desktop-only">
         <audio id="player" preload="metadata"></audio>
-        <input id="vol" type="range" min="0" max="1" step="0.02" value="0.9" style="width:90px" aria-label="Volume">
+        <input id="vol" type="range" min="0" max="1" step="0.02" value="0.9" aria-label="Volume">
       </div>
     </div>
   </div>
@@ -175,16 +181,16 @@
     <div id="ps-ambient" class="ps-ambient" aria-hidden="true"></div>
     <div class="sheet-handle"></div>
     <div class="ps-head">
-      <button id="ps-close" class="btn btn-ghost" aria-label="Minimize">⌄</button>
+      <button id="ps-close" class="btn btn-ghost" aria-label="Minimize"><svg width="16" height="16"><use href="#i-chevron-down"/></svg></button>
       <span class="ps-title">Now Playing</span>
-      <div style="display:flex;gap:4px">
-        <button id="ps-queue-btn" class="btn btn-ghost" title="Up next" aria-label="Up next queue"><svg width="18" height="18"><use href="#i-list"/></svg></button>
-        <button id="ps-more" class="btn btn-ghost" aria-label="More">⋯</button>
+      <div style="display:flex;gap:6px">
+        <button id="ps-queue-btn" class="btn btn-ghost" title="Up next" aria-label="Up next queue"><svg width="16" height="16"><use href="#i-list"/></svg></button>
+        <button id="ps-more" class="btn btn-ghost" aria-label="More"><svg width="16" height="16"><use href="#i-dots"/></svg></button>
       </div>
     </div>
     <div class="ps-art-wrap">
       <img id="ps-art" src="" alt="" style="display:none">
-      <div id="ps-art-ph" class="ps-art-ph">♪</div>
+      <div id="ps-art-ph" class="ps-art-ph"><svg><use href="#i-music"/></svg></div>
     </div>
     <div class="ps-meta">
       <div id="ps-title" class="ps-track-title">Not playing</div>
@@ -201,7 +207,7 @@
       <button id="repeat-btn-ps" class="icon-btn" title="Repeat" aria-label="Repeat"><svg width="18" height="18"><use href="#i-repeat"/></svg></button>
       <button id="cache-btn" class="icon-btn" title="Cache for offline" aria-label="Offline"><svg width="18" height="18"><use href="#i-download"/></svg></button>
     </div>
-    <div class="ps-queue-hint">Swipe left/right for next • Swipe down to minimize</div>
+    <div class="ps-queue-hint">Swipe sideways to skip · drag down to minimize</div>
   </div>
   <div id="player-overlay" class="sheet-overlay" style="display:none"></div>
 
@@ -245,52 +251,52 @@
     <div class="sheet-handle"></div>
     <div id="track-sheet-head" class="as-head"></div>
     <div class="as-actions">
-      <button id="as-play" class="as-btn">▶ Play</button>
-      <button id="as-next" class="as-btn">⏭ Play next</button>
+      <button id="as-play" class="as-btn"><svg><use href="#i-play"/></svg><span>Play</span></button>
+      <button id="as-next" class="as-btn"><svg><use href="#i-next"/></svg><span>Play next</span></button>
       <div class="as-divider"></div>
       <div id="as-playlists" class="as-playlists"></div>
-      <button id="as-close" class="btn btn-ghost" style="width:100%;margin-top:8px">Close</button>
+      <button id="as-close" class="btn btn-ghost" style="width:100%">Close</button>
     </div>
   </div>
   <div id="track-overlay" class="sheet-overlay" style="display:none"></div>
 
   <div id="toast" role="status" aria-live="polite"></div>
 
-  <div id="auth-dialog" class="modal" style="display:none" role="dialog" aria-modal="true">
+  <div id="auth-dialog" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="auth-title">
     <div class="modal-card">
       <h3 id="auth-title">Log in</h3>
-      <p class="sub" style="margin-bottom:12px">Global library is public — log in to make playlists & upload your own songs.</p>
-      <input id="auth-email" type="email" placeholder="Email" autocomplete="email" style="margin-bottom:8px">
-      <input id="auth-pass" type="password" placeholder="Password (min 6)" autocomplete="current-password" style="margin-bottom:10px">
+      <p class="sub">Your library is private — log in to browse, create playlists and queue new songs.</p>
+      <input id="auth-email" type="email" placeholder="Email" autocomplete="email">
+      <input id="auth-pass" type="password" placeholder="Password (min 6)" autocomplete="current-password">
       <div id="auth-error" class="status err" style="min-height:16px"></div>
       <div class="row" style="margin-top:8px">
-        <button id="auth-login" class="btn btn-main" style="flex:1">Log in</button>
-        <button id="auth-signup" class="btn btn-ghost" style="flex:1">Sign up</button>
+        <button id="auth-login" class="btn btn-main" style="flex:1;min-height:42px">Log in</button>
+        <button id="auth-signup" class="btn btn-ghost" style="flex:1;min-height:42px">Sign up</button>
       </div>
-      <button id="auth-close" class="btn btn-ghost" style="width:100%;margin-top:8px">Cancel</button>
+      <button id="auth-close" class="btn btn-ghost" style="width:100%;margin-top:4px;min-height:42px">Cancel</button>
     </div>
   </div>
 
   <!-- PWA Install Banner -->
   <div id="pwa-banner" class="pwa-banner" style="display:none" role="dialog" aria-label="Install app">
-    <div class="pwa-icon"><img src="icons/icon-192.png" alt="" width="20" height="20" style="border-radius:3px"></div>
+    <div class="pwa-icon"><img src="icons/icon-192.png" alt="" width="20" height="20"></div>
     <div class="pwa-text">
       <strong>Install Hedge Music</strong>
-      <span>Add to home screen — offline playback & native controls</span>
+      <span>Add to home screen for offline playback and native controls</span>
     </div>
-    <button id="pwa-install" class="btn btn-main" style="padding:8px 16px;white-space:nowrap">Install</button>
-    <button id="pwa-dismiss" class="btn btn-ghost" style="padding:8px 12px" aria-label="Dismiss">✕</button>
+    <button id="pwa-install" class="btn btn-main" style="min-height:36px;white-space:nowrap">Install</button>
+    <button id="pwa-dismiss" class="btn btn-ghost btn-icon-only" aria-label="Dismiss"><svg width="13" height="13"><use href="#i-x"/></svg></button>
   </div>
   <div id="pwa-ios" class="pwa-banner" style="display:none" role="dialog" aria-label="Install on iOS">
-    <div class="pwa-icon">⬆</div>
+    <div class="pwa-icon"><svg width="15" height="15"><use href="#i-music"/></svg></div>
     <div class="pwa-text">
       <strong>Install on iPhone</strong>
-      <span>Tap Share → Add to Home Screen</span>
+      <span>Tap Share, then Add to Home Screen</span>
     </div>
-    <button id="pwa-ios-dismiss" class="btn btn-ghost" style="padding:8px 12px">✕</button>
+    <button id="pwa-ios-dismiss" class="btn btn-ghost btn-icon-only" aria-label="Dismiss"><svg width="13" height="13"><use href="#i-x"/></svg></button>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-  <script src="music.js?v=30" defer></script>
+  <script src="music.js?v=32" defer></script>
 </body>
 </html>

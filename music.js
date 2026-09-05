@@ -56,7 +56,7 @@ function toggleLike(id){
   const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
   if(isLikesView || !patched) renderTracks();
   else patchPlayingRow();
-  toast(liked ? '♥ Liked' : '♡ Unliked');
+  toast(liked ? 'Added to Likes' : 'Removed from Likes');
 }
 
 // --- Auth ---
@@ -74,12 +74,12 @@ function renderAuth(){
   if(!area) return;
   if(currentUser){
     const initial=getInitial(currentUser.email);
-    area.innerHTML=`<button id="avatar-btn" class="avatar-btn" aria-label="Profile menu" aria-expanded="false">${esc(initial)}</button><div id="profile-menu" class="profile-menu" style="display:none"><div class="profile-email" title="${esc(currentUser.email)}">${esc(currentUser.email)}</div><button id="open-settings" class="btn btn-ghost" style="width:100%">⚙ Settings</button><button id="auth-logout" class="btn btn-ghost" style="width:100%">Log out</button></div>`;
+    area.innerHTML=`<button id="avatar-btn" class="avatar-btn" aria-label="Profile menu" aria-expanded="false">${esc(initial)}</button><div id="profile-menu" class="profile-menu" style="display:none"><div class="profile-email" title="${esc(currentUser.email)}">${esc(currentUser.email)}</div><button id="open-settings" class="btn btn-ghost">Settings</button><button id="auth-logout" class="btn btn-ghost">Log out</button></div>`;
     $('avatar-btn')?.addEventListener('click', (e)=>{ e.stopPropagation(); toggleProfileMenu(); });
     $('open-settings')?.addEventListener('click', ()=>{ toggleProfileMenu(false); openSettings(); });
     $('auth-logout')?.addEventListener('click', async()=>{ toggleProfileMenu(false); await sb.auth.signOut(); });
   } else {
-    area.innerHTML=`<button id="auth-open" class="btn btn-ghost" style="padding:5px 10px">Log in</button><button id="open-settings-guest" class="btn btn-ghost" style="padding:5px 8px" title="Settings">⚙</button>`;
+    area.innerHTML=`<button id="auth-open" class="btn btn-ghost" style="min-height:32px">Log in</button><button id="open-settings-guest" class="btn btn-ghost btn-icon-only" style="width:32px;height:32px" title="Settings" aria-label="Settings"><svg width="15" height="15"><use href="#i-gear"/></svg></button>`;
     $('auth-open')?.addEventListener('click', ()=> showAuth('login'));
     $('open-settings-guest')?.addEventListener('click', ()=> openSettings());
   }
@@ -229,7 +229,7 @@ async function initAuth(){
     if(!approved){
       queue=[]; playlists=[]; playlistTracks=[]; tracks=[];
       clearSnapshot();
-      $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon — you can browse after approval</small></div>`;
+      $('tracks-list').innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Awaiting approval</strong></div><small>Your account is pending review — you will see your library once approved.</small></div>`;
       const qc=$('queue-count'); if(qc) qc.textContent='awaiting approval';
       const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Awaiting approval</small>';
       toast('Awaiting admin approval');
@@ -241,7 +241,7 @@ async function initAuth(){
     restoreUIState();
     restorePlaying();
   }
-  else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; clearSnapshot(); const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to see your private library</small>'; $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in required</div><button id="gate-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`; setTimeout(()=>{ const b=$('gate-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0); }
+  else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; clearSnapshot(); const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to see your private library</small>'; $('tracks-list').innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Your library is private</strong></div><small>Log in to browse your tracks and playlists.</small><button id="gate-login-btn" class="btn btn-main">Log in</button></div>`; setTimeout(()=>{ const b=$('gate-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0); }
 }
 sb.auth.onAuthStateChange(async (_event, session)=>{
   currentUser=session?.user||null;
@@ -250,7 +250,7 @@ sb.auth.onAuthStateChange(async (_event, session)=>{
     const approved = await isApproved();
     if(!approved){
       queue=[]; playlists=[]; playlistTracks=[]; tracks=[];
-      $('tracks-list').innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon</small></div>`;
+      $('tracks-list').innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Awaiting approval</strong></div><small>Admin will approve your account soon.</small></div>`;
       toast('Awaiting admin approval');
       return;
     }
@@ -360,7 +360,7 @@ function setIngest(open){
   panel.classList.toggle('collapsed', !willOpen);
   panel.setAttribute('aria-hidden', willOpen ? 'false' : 'true');
   const btn=$('toggle-ingest');
-  if(btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.textContent = willOpen ? '✕ Close' : '＋ Queue'; }
+  if(btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.innerHTML = willOpen ? '<svg width="13" height="13"><use href="#i-x"/></svg><span>Close</span>' : '<svg width="13" height="13"><use href="#i-plus"/></svg><span>Queue</span>'; }
   if(overlay){
     overlay.style.display = willOpen && isMobile() ? 'block' : 'none';
   }
@@ -500,13 +500,13 @@ async function queueNow(){
       throw error;
     }
     $('yt-url').value='';
-    $('queue-status').textContent='✓ Queued as pending. Run laptop: node tools/ingest.js --watch';
+    $('queue-status').textContent='Queued as pending — run on laptop: node tools/ingest.js --watch';
     $('queue-status').className='status ok';
-    toast('Queued! Run laptop ingest');
+    toast('Queued');
     await loadQueue();
     logEvent('queue', null, { url: url.slice(0,120) });
   }catch(e){
-    $('queue-status').textContent='✗ '+e.message; $('queue-status').className='status err';
+    $('queue-status').textContent=e.message; $('queue-status').className='status err';
     if(e.message.includes('does not exist') || e.message.includes('relation')){
       $('queue-status').textContent += ' — Run supabase-setup.sql first.';
     }
@@ -527,10 +527,11 @@ async function loadQueue(){
   const pl=$('pending-list');
   if(pl){
     pl.innerHTML = queue.slice(0,12).map(q=>{
-      const s = q.status==='pending'?'⏳': q.status==='done'?'✓': q.status==='processing'?'⚙️':'✗';
-      return `<div class="pending-item"><span>${s} ${esc(q.original_url.slice(0,54))}</span><small>${esc(q.status)} ${q.error? '· '+esc(q.error.slice(0,40)):''}</small></div>`;
-    }).join('') || '<div class="empty" style="padding:12px">No queued URLs</div>';
-    if(queue.length>12) pl.innerHTML += `<small style="color:var(--text-tertiary);padding:6px 10px;display:block">+ ${queue.length-12} more</small>`;
+      const cls = q.status==='pending' ? 'is-pending' : (q.status==='error' || q.status==='failed') ? 'is-error' : '';
+      const label = esc(q.status || 'queued');
+      return `<div class="pending-item"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(q.original_url.slice(0,54))}${q.error? `<br><small>${esc(q.error.slice(0,60))}</small>`:''}</span><span class="pending-status ${cls}">${label}</span></div>`;
+    }).join('') || '<div class="empty" style="padding:16px"><small>No queued URLs</small></div>';
+    if(queue.length>12) pl.innerHTML += `<small style="color:var(--text-tertiary);padding:8px 12px;display:block">+ ${queue.length-12} more</small>`;
   }
 }
 
@@ -542,7 +543,7 @@ let tracksLoading = false;
 let tracksEpoch = 0; // bumps on every loadTracks call; in-flight stale responses are discarded
 function showSkeleton(){
   const el=$('tracks-list'); if(!el) return;
-  el.innerHTML = Array(3).fill(0).map(()=> `<div class="track skeleton" style="pointer-events:none"><div style="width:46px;height:46px;border-radius:6px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div>`).join('');
+  el.innerHTML = Array(3).fill(0).map(()=> `<div class="track skeleton" style="pointer-events:none"><div style="width:52px;height:52px;border-radius:8px;background:var(--surface-hover)"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div style="height:12px;width:60%;background:var(--surface-hover);border-radius:6px"></div><div style="height:10px;width:40%;background:var(--surface-hover);border-radius:6px"></div></div></div>`).join('');
 }
 function trackSentinel(){
   let el=$('track-sentinel');
@@ -574,8 +575,8 @@ async function loadTracks(reset=true, opts={}){
   if(epoch !== tracksEpoch) return;         // a newer load/reset started — discard this stale response
   if(error){
     console.warn('tracks load', error.message);
-    if(error.message.includes('does not exist')) $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">♪</div><div>Run <code>supabase-setup.sql</code> in Supabase SQL Editor, then queue a URL.</div></div>';
-    else $('tracks-list').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div>Failed to load tracks</div></div>';
+    if(error.message.includes('does not exist')) $('tracks-list').innerHTML = '<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Setup required</strong></div><small>Run <code>supabase-setup.sql</code> in Supabase SQL Editor, then queue a URL.</small></div>';
+    else $('tracks-list').innerHTML = '<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Could not load tracks</strong></div><small>Check your connection and try refreshing.</small></div>';
     return;
   }
   if(!data || !data.length) tracksAllLoaded=true;
@@ -597,12 +598,12 @@ async function loadTracks(reset=true, opts={}){
   const tc=$('tracks-count'); if(tc) tc.textContent = tracks.length+' tracks';
   // private library: enforce login + approval gate
   if(!currentUser){
-    const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-icon">🔒</div><div>Private library — log in to see your tracks</div><button id="empty-login-btn" class="btn btn-main" style="margin-top:8px">Log in</button></div>`;
+    const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Your library is private</strong></div><small>Log in to see your tracks.</small><button id="empty-login-btn" class="btn btn-main">Log in</button></div>`;
     setTimeout(()=>{ const b=$('empty-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0);
     return;
   }
   // check approval async — if not approved, loadTracks already gated in initAuth, but handle direct call
-  sb.rpc('is_approved').then(({data})=>{ if(!data){ const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-icon">⏳</div><div>Awaiting approval</div><small style="color:var(--text-tertiary)">Admin will approve your account soon</small></div>`; } }).catch(()=>{});
+  sb.rpc('is_approved').then(({data})=>{ if(!data){ const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Awaiting approval</strong></div><small>Admin will approve your account soon.</small></div>`; } }).catch(()=>{});
   renderTracks();
   }finally{ tracksLoading=false; }
 }
@@ -664,7 +665,7 @@ $('sort-popular-btn')?.addEventListener('click', async()=>{
   vibrate(8);
   popularSort = !popularSort;
   const btn=$('sort-popular-btn');
-  if(btn){ btn.classList.toggle('btn-main', popularSort); btn.classList.toggle('btn-ghost', !popularSort); btn.textContent = popularSort ? '🔥 On' : '🔥 Popular'; }
+  if(btn){ btn.classList.toggle('is-on', popularSort); btn.setAttribute('aria-pressed', popularSort ? 'true' : 'false'); }
   if(popularSort && !popularCache) await loadPopular();
   updateListHead(); renderTracks();
   toast(popularSort ? 'Sorted by plays' : 'Newest first');
@@ -702,26 +703,25 @@ function renderTracks(){
     const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
     const isFiltered = isLikesView || activePlaylistId || filter!=='all' || searchQ;
     if(isLikesView){
-      el.innerHTML=`<div class="empty"><div class="empty-icon">♥</div><div>No liked songs yet</div><small style="color:var(--text-tertiary)">Tap the ♥ on any track and it shows up here</small></div>`;
+      el.innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-heart"/></svg></div><div><strong>No liked songs yet</strong></div><small>Tap the heart on any track and it will show up here.</small></div>`;
       return;
     }
     if(isFiltered){
-      el.innerHTML=`<div class="empty"><div class="empty-icon">🔍</div><div>No tracks match</div><small style="color:var(--text-tertiary)">Try clearing search or filter</small><button id="clear-filters-btn" class="btn btn-ghost" style="margin-top:8px">Clear filters</button></div>`;
+      el.innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-search"/></svg></div><div><strong>No tracks match</strong></div><small>Try a different search or filter.</small><button id="clear-filters-btn" class="btn btn-ghost">Clear filters</button></div>`;
     } else {
-      el.innerHTML=`<div class="empty"><div class="empty-icon">♪</div><div>No tracks yet</div><small style="color:var(--text-tertiary)">Queue a URL and run your laptop ingest</small><button id="empty-queue-btn" class="btn btn-main" style="margin-top:8px">＋ Queue first track</button></div>`;
+      el.innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>No tracks yet</strong></div><small>Queue a link and run the laptop ingest to add music.</small><button id="empty-queue-btn" class="btn btn-main">Queue your first track</button></div>`;
     }
     return;
   }
   el.innerHTML = list.map(tr=>{
     const isCur = tr.id===curTrackId;
     const playingClass = isCur ? 'playing' + (isPlaying ? ' is-playing' : '') : '';
-    const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" decoding="async" width="64" height="64" alt="">` : `<div style="width:64px;height:64px;background:var(--bg);border:1px solid var(--border);border-radius:8px;display:grid;place-items:center;font-size:18px;flex-shrink:0">♪</div>`;
+    const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" loading="lazy" decoding="async" width="52" height="52" alt="">` : `<div class="t-ph"><svg><use href="#i-music"/></svg></div>`;
     const dur = tr.duration_sec ? fmtTime(tr.duration_sec) : '--:--';
-    const size = tr.file_size ? (tr.file_size/1024/1024).toFixed(1)+'MB' : '';
     const plays = popularCache?.get(tr.id) || 0;
-    const playBadge = plays ? `▶ ${plays}` : '';
+    const playBadge = plays ? `${plays} plays` : '';
     const artistLine = tr.artist || tr.extractor || '';
-    const meta = [esc(artistLine), playBadge, dur].filter(Boolean).join(' · ');
+    const meta = [esc(artistLine), playBadge ? esc(playBadge) : '', esc(dur)].filter(Boolean).join('<span class="sep">·</span>');
     const progress = isCur && isFinite(audio.duration) && audio.duration ? Math.round(audio.currentTime/audio.duration*100) : 0;
     const liked=isLiked(tr.id);
     return `<div class="track ${playingClass}" data-id="${esc(tr.id)}">
@@ -731,9 +731,9 @@ function renderTracks(){
         <div class="t-sub">${meta}</div>
       </div>
       <div class="t-actions">
-        <button class="mini play-mini ${isCur && isPlaying?'playing':''}" data-play="${esc(tr.id)}" aria-label="Play"><svg width="14" height="14" class="i-play-icon"><use href="#i-play"/></svg><svg width="14" height="14" class="i-pause-icon"><use href="#i-pause"/></svg></button>
-        <button class="like-btn ${liked?'liked':''}" data-like="${esc(tr.id)}" aria-label="Like"><svg width="18" height="18"><use href="${liked ? '#i-heart-filled' : '#i-heart'}"/></svg></button>
-        <button class="track-more" data-more="${esc(tr.id)}" aria-label="More">⋯</button>
+        <button class="mini play-mini ${isCur && isPlaying?'playing':''}" data-play="${esc(tr.id)}" aria-label="${isCur && isPlaying ? 'Pause' : 'Play'}"><svg width="12" height="12" class="i-play-icon"><use href="#i-play"/></svg><svg width="12" height="12" class="i-pause-icon"><use href="#i-pause"/></svg></button>
+        <button class="like-btn ${liked?'liked':''}" data-like="${esc(tr.id)}" aria-label="${liked ? 'Unlike' : 'Like'}"><svg><use href="${liked ? '#i-heart-filled' : '#i-heart'}"/></svg></button>
+        <button class="track-more" data-more="${esc(tr.id)}" aria-label="More actions"><svg><use href="#i-dots"/></svg></button>
       </div>
       <div class="t-progress" aria-hidden="true"><div class="t-progress-bar" data-bar="${esc(tr.id)}" style="width:${progress}%"></div></div>
     </div>`;
@@ -782,17 +782,17 @@ function openTrackSheet(trackId){
   pendingSheetTrackId=trackId;
   const sheet=$('track-sheet'), overlay=$('track-overlay');
   const head=$('track-sheet-head');
-  const art = tr.thumbnail_url ? `<img src="${esc(tr.thumbnail_url)}" alt="">` : `<div style="width:48px;height:48px;background:var(--bg);border:1px solid var(--border);border-radius:6px;display:grid;place-items:center">♪</div>`;
+  const art = (tr.thumbnail_url && isValidThumb(tr.thumbnail_url)) ? `<img src="${esc(tr.thumbnail_url)}" alt="">` : `<div class="as-head-ph"><svg width="20" height="20"><use href="#i-music"/></svg></div>`;
   head.innerHTML=`${art}<div class="as-head-text"><div class="as-head-title">${esc(tr.title)}</div><div class="as-head-sub">${esc(tr.artist||tr.extractor||'')}</div></div>`;
   // contextual remove — show only if currently viewing that playlist and track is in it
   let removeHtml = '';
   if(activePlaylistId && playlistTracks.some(pt=>pt.playlist_id===activePlaylistId && pt.track_id===trackId)){
     const plName = playlists.find(p=>p.id===activePlaylistId)?.name || 'this playlist';
-    removeHtml = `<button id="as-remove" class="as-btn as-remove" style="border-color:#3a2a2a;color:#e8a0a0;background:#1f1414">✕ Remove from ${esc(plName)}</button><div class="as-divider"></div>`;
+    removeHtml = `<button id="as-remove" class="as-btn as-remove"><svg><use href="#i-x"/></svg><span>Remove from ${esc(plName)}</span></button><div class="as-divider"></div>`;
   }
   const plWrap=$('as-playlists');
   if(playlists.length){
-    plWrap.innerHTML = removeHtml + playlists.map(p=> `<button class="as-pl-btn" data-pid="${esc(p.id)}">＋ ${esc(p.name)}</button>`).join('');
+    plWrap.innerHTML = removeHtml + playlists.map(p=> `<button class="as-pl-btn" data-pid="${esc(p.id)}">${esc(p.name)}</button>`).join('');
     const rmBtn = plWrap.querySelector('#as-remove');
     if(rmBtn) rmBtn.addEventListener('click', async()=>{
       await removeFromPlaylist(activePlaylistId, pendingSheetTrackId);
@@ -867,43 +867,49 @@ async function loadPlaylists(){
   renderPlaylists();
   renderTracks();
 }
+function selectPlaylist(id){
+  // toggle: clicking active All stays All, clicking active playlist again goes back to All
+  if(id === activePlaylistId){ activePlaylistId = null; }
+  else activePlaylistId = id || null;
+  const titleEl=$('list-title'); if(titleEl) titleEl.textContent = activePlaylistId ? (playlists.find(p=>p.id===activePlaylistId)?.name || 'Playlist') : 'All tracks';
+  updateListHead();
+  renderPlaylists(); renderTracks();
+  if(isMobile()) setMobileTab('library');
+  if(activePlaylistId) setTimeout(()=> document.querySelector('.main')?.scrollIntoView({behavior:'smooth', block:'start'}), 100);
+}
 function renderPlaylists(){
   const el=$('playlists-list');
   if(!el) return;
   saveSnapshot();
-  if(!currentUser){ el.innerHTML='<small style="color:var(--text-tertiary)">Log in to make your own playlists — library is public to browse</small>'; return; }
+  if(!currentUser){ el.innerHTML='<small style="color:var(--text-tertiary)">Log in to create playlists</small>'; return; }
   // build list with All tracks on top
   const allCount = tracks.length;
   const allActive = !activePlaylistId ? 'active' : '';
-  let html = `<div class="playlist-item ${allActive}" data-id="">
-      <span>♫ All tracks <small>(${allCount})</small></span>
-      <small style="color:var(--text-tertiary)">view all</small>
+  let html = `<div class="playlist-item ${allActive}" data-id="" tabindex="0" aria-label="Show all tracks">
+      <span class="pl-name">All tracks</span>
+      <span class="pl-count">${allCount}</span>
     </div>`;
   if(!playlists.length){
-    html += '<small style="color:var(--text-tertiary);padding:8px 2px;display:block">No playlists yet — create one above</small>';
+    html += '<small style="color:var(--text-tertiary);padding:10px 2px 2px;display:block">No playlists yet — create one above</small>';
   } else {
     html += playlists.map(p=>{
       const count = playlistTracks.filter(pt=>pt.playlist_id===p.id).length;
-      return `<div class="playlist-item ${activePlaylistId===p.id?'active':''}" data-id="${esc(p.id)}">
-        <span>▶ ${esc(p.name)} <small>(${count})</small></span>
-        <button class="mini del-pl" data-id="${esc(p.id)}" style="background:#1f1f2a;border:1px solid var(--border);padding:4px 8px;border-radius:6px;cursor:pointer">✕</button>
+      return `<div class="playlist-item ${activePlaylistId===p.id?'active':''}" data-id="${esc(p.id)}" tabindex="0" aria-label="Show playlist ${esc(p.name)}">
+        <span class="pl-name">${esc(p.name)}</span>
+        <span style="display:flex;align-items:center;gap:6px;flex-shrink:0"><span class="pl-count">${count}</span><button class="del-pl" data-id="${esc(p.id)}" aria-label="Delete playlist"><svg width="12" height="12"><use href="#i-x"/></svg></button></span>
       </div>`;
     }).join('');
   }
   el.innerHTML = html;
   el.querySelectorAll('.playlist-item').forEach(n=> n.addEventListener('click', e=>{
     if(e.target.closest('.del-pl')) return;
-    const id = n.dataset.id;
-    // toggle: clicking active All stays All, clicking active playlist again goes back to All
-    if(id === activePlaylistId){ activePlaylistId = null; }
-    else activePlaylistId = id || null;
-    const titleEl=$('list-title'); if(titleEl) titleEl.textContent = activePlaylistId ? (playlists.find(p=>p.id===activePlaylistId)?.name || 'Playlist') : 'All tracks';
-    // update header back affordance
-    updateListHead();
-    renderPlaylists(); renderTracks();
-    if(isMobile()) setMobileTab('library');
-    // scroll tracks into view
-    if(activePlaylistId) setTimeout(()=> document.querySelector('.main')?.scrollIntoView({behavior:'smooth', block:'start'}), 100);
+    selectPlaylist(n.dataset.id);
+  }));
+  el.querySelectorAll('.playlist-item').forEach(n=> n.addEventListener('keydown', e=>{
+    if((e.key === 'Enter' || e.key === ' ') && e.target === n){
+      e.preventDefault();
+      selectPlaylist(n.dataset.id);
+    }
   }));
   el.querySelectorAll('.del-pl').forEach(b=> b.addEventListener('click', async e=>{
     e.stopPropagation();
@@ -927,8 +933,8 @@ function updateListHead(){
       back=document.createElement('button');
       back.id='back-to-all';
       back.className='btn btn-ghost';
-      back.style.padding='6px 10px';
-      back.style.fontSize='12px';
+      back.style.minHeight='32px';
+      back.style.fontSize='12.5px';
       back.textContent='← All tracks';
       back.addEventListener('click', ()=>{ vibrate(8); activePlaylistId=null; updateListHead(); renderPlaylists(); renderTracks(); toast('Showing all tracks'); });
       head.insertBefore(back, titleEl);
@@ -937,7 +943,7 @@ function updateListHead(){
     titleEl.style.display='none';
   } else {
     const isLikesView = isMobile() && document.body.getAttribute('data-mobile-tab')==='likes';
-    titleEl.textContent = isLikesView ? '♥ Liked' : (popularSort ? '🔥 Popular' : 'All tracks');
+    titleEl.textContent = isLikesView ? 'Liked' : (popularSort ? 'Most played' : 'All tracks');
     titleEl.style.display='';
     if(back) back.style.display='none';
   }
@@ -1122,11 +1128,11 @@ $('cache-btn')?.addEventListener('click', async()=>{
   try{
     // fetch-through: the SW intercepts this request and stores it in `tracks-v1`
     // under a token-stripped key, so it survives signed-URL rotation and plays offline
-    toast('Caching for offline...');
+    toast('Caching for offline playback…');
     const r=await fetch(url);
     if(!r.ok) throw new Error('HTTP '+r.status);
     await r.arrayBuffer(); // drain fully so the whole file is cached
-    toast('Cached offline ✓ — plays without network');
+    toast('Saved — plays offline');
   }catch(e){ toast.error('Cache failed: '+e.message); }
 });
 
@@ -1183,17 +1189,17 @@ function closeUpNext(){
 function renderUpNext(){
   const el=$('upnext-list'); if(!el) return;
   const q = window._playQueue || [];
-  if(!q.length){ el.innerHTML=`<div class="empty" style="padding:16px"><div class="empty-icon">♪</div><div>Queue empty</div><small style="color:var(--text-tertiary)">Play a track to build the queue</small></div>`; return; }
+  if(!q.length){ el.innerHTML=`<div class="empty" style="padding:20px"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Queue is empty</strong></div><small>Play a track to build the queue.</small></div>`; return; }
   el.innerHTML = q.map((t,i)=>{
     const now = t.id===curTrackId;
-    const art = (t.thumbnail_url && isValidThumb(t.thumbnail_url)) ? `<img src="${esc(t.thumbnail_url)}" loading="lazy" alt="">` : `<div class="up-ph">♪</div>`;
-    return `<div class="upnext-item" data-upnext="${esc(t.id)}" ${now?'style="background:var(--surface-active)"':''}>
+    const art = (t.thumbnail_url && isValidThumb(t.thumbnail_url)) ? `<img src="${esc(t.thumbnail_url)}" loading="lazy" alt="">` : `<div class="up-ph"><svg><use href="#i-music"/></svg></div>`;
+    return `<div class="upnext-item ${now?'is-now':''}" data-upnext="${esc(t.id)}">
       ${art}
       <div style="min-width:0">
-        <div class="upnext-title">${now?'<span class="upnext-now">Now playing</span> · ':''}${esc(t.title)}</div>
+        <div class="upnext-title">${now?'<span class="upnext-now">Now playing&nbsp;&nbsp;·&nbsp;&nbsp;</span>':''}${esc(t.title)}</div>
         <div class="upnext-artist">${esc(t.artist||t.extractor||'')}</div>
       </div>
-      ${now?'':`<span class="upnext-idx">${i+1}</span><button class="upnext-remove" data-remove="${esc(t.id)}" aria-label="Remove from queue">✕</button>`}
+      ${now?'':`<span class="upnext-idx">${i+1}</span><button class="upnext-remove" data-remove="${esc(t.id)}" aria-label="Remove from queue"><svg><use href="#i-x"/></svg></button>`}
     </div>`;
   }).join('');
   el.querySelectorAll('[data-upnext]').forEach(node=>{

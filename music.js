@@ -1357,7 +1357,7 @@ try{
 }catch{}
 
 // --- Theme (light default, dark toggle, persisted) ---
-const THEME_COLORS={light:'#f1f2f4', dark:'#141417'};
+const THEME_COLORS={light:'#e4e5e9', dark:'#141417'};
 function currentTheme(){ return document.documentElement.dataset.theme==='dark' ? 'dark' : 'light'; }
 function syncThemeMeta(){
   const m=document.querySelector('meta[name="theme-color"]');

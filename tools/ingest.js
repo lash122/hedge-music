@@ -7,13 +7,16 @@
  *        node ingest.js --check  (check deps only)
  */
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
+// Node <22 ships no global WebSocket, but supabase-js constructs its
+// realtime client eagerly — shim it (ingest never subscribes).
+if (!globalThis.WebSocket) globalThis.WebSocket = WebSocket;
 // ws only needed if supabase realtime used in Node; not used in ingest -> safe to keep but optional
 import { spawn } from 'node:child_process';
 import { existsSync, statSync, readFileSync, unlinkSync, readdirSync, mkdirSync, createReadStream } from 'node:fs';
 import { tmpdir, hostname } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Pipeline } from 'node:stream/promises';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Load .env if present

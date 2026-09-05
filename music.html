@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Hedge Music</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#f9e3ed">
-  <script>(function(){try{var t=localStorage.getItem('hedge-theme')||'light';document.documentElement.dataset.theme=(t==='dark')?'dark':'light';}catch(e){document.documentElement.dataset.theme='light';}})();</script>
+  <meta name="theme-color" content="#0c0c0f">
+  <script>(function(){try{var t=localStorage.getItem('hedge-theme')||'dark';document.documentElement.dataset.theme=(t==='light')?'light':'dark';}catch(e){document.documentElement.dataset.theme='dark';}})();</script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Hedge Music">
   <meta name="description" content="Personal music library — Supabase + laptop ingest">
-  <style>html{background:#f9e3ed}html[data-theme="dark"]{background:#0c0c0f}</style>
+  <style>html{background:#0c0c0f}html[data-theme="light"]{background:#f9e3ed}</style>
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,7 +58,7 @@
       <span id="net-dot" class="net-dot online" title="Online"></span>
       <span id="queue-badge" class="badge" style="display:none">0 queued</span>
       <span id="storage-hint" class="hint">1GB · ~200 tracks</span>
-      <button id="theme-btn" class="btn btn-ghost btn-icon-only" title="Toggle dark mode" aria-label="Toggle dark mode"><svg width="15" height="15"><use href="#i-moon"/></svg></button>
+      <button id="theme-btn" class="btn btn-ghost btn-icon-only" title="Toggle theme" aria-label="Toggle theme"><svg width="15" height="15"><use href="#i-sun"/></svg></button>
       <button id="toggle-ingest" class="btn btn-ghost btn-icon desktop-only" aria-expanded="false" aria-controls="ingest-panel" title="Queue new track"><svg width="13" height="13"><use href="#i-plus"/></svg><span>Queue</span></button>
       <span id="auth-area" class="auth-area"></span>
       <button id="install-btn" class="btn btn-ghost" style="display:none">Install</button>

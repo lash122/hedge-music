@@ -40,6 +40,18 @@
 
   <div id="dash" style="display:none">
     <div class="kpis" id="kpis"></div>
+    <div id="worker-banner" class="card" style="display:none;padding:12px 14px;margin-bottom:12px;border-color:var(--danger-border);background:var(--danger-bg);font-size:13px"></div>
+    <div class="card" style="padding:14px;overflow:auto;margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+        <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Users</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="user-search" placeholder="Search email…" autocomplete="off" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:8px;outline:none;font-size:12.5px;width:200px">
+          <button id="refresh-users" class="btn btn-ghost" style="padding:6px 10px">↺</button>
+        </div>
+      </div>
+      <table class="table"><thead><tr><th>Email</th><th>Status</th><th>Tracks</th><th>Plays</th><th>Storage</th><th>Queue</th><th>Joined</th><th></th></tr></thead><tbody id="users-body"><tr><td colspan="8" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+      <div id="user-detail" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px"></div>
+    </div>
     <div class="card" style="padding:14px;overflow:auto;margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
         <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Pending approvals</h3>
@@ -49,11 +61,21 @@
     </div>
     <div style="display:grid;grid-template-columns:1fr;gap:12px">
       <div class="card" style="padding:14px;overflow:auto">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
           <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Top tracks (plays/views)</h3>
-          <button id="refresh-btn" class="btn btn-ghost" style="padding:6px 10px">↺ Refresh</button>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="bulk-del-btn" class="btn btn-ghost" style="padding:6px 10px;color:#e8a0a0;display:none">Trash selected (<span id="bulk-count">0</span>)</button>
+            <button id="refresh-btn" class="btn btn-ghost" style="padding:6px 10px">↺ Refresh</button>
+          </div>
         </div>
-        <table class="table"><thead><tr><th>Track</th><th>Artist</th><th>Extractor</th><th>Plays</th><th>Views</th><th>Queues</th><th></th></tr></thead><tbody id="leader-body"><tr><td colspan="7" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+        <table class="table"><thead><tr><th></th><th>Track</th><th>Artist</th><th>Owner</th><th>Plays</th><th>Views</th><th>Queues</th><th></th></tr></thead><tbody id="leader-body"><tr><td colspan="8" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+      </div>
+      <div class="card" style="padding:14px;overflow:auto">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+          <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Playlists</h3>
+          <button id="refresh-playlists" class="btn btn-ghost" style="padding:6px 10px">↺</button>
+        </div>
+        <table class="table"><thead><tr><th>Name</th><th>Owner</th><th>Songs</th><th>Created</th><th></th></tr></thead><tbody id="playlists-body"><tr><td colspan="5" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="two-col">
         <div class="card" style="padding:14px;overflow:auto">
@@ -61,14 +83,49 @@
           <table class="table"><thead><tr><th>When</th><th>Event</th><th>Track</th><th>User</th></tr></thead><tbody id="events-body"><tr><td colspan="4" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
         </div>
         <div class="card" style="padding:14px;overflow:auto">
-          <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Queue health (pending/error)</h3>
-          <table class="table"><thead><tr><th>URL</th><th>Status</th><th>Error</th><th>When</th></tr></thead><tbody id="queue-body"><tr><td colspan="4" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Queue</h3>
+            <div id="queue-filters" style="display:flex;gap:4px;flex-wrap:wrap">
+              <button class="btn btn-ghost qf active" data-qf="all" style="padding:4px 8px;font-size:11px">All</button>
+              <button class="btn btn-ghost qf" data-qf="pending" style="padding:4px 8px;font-size:11px">Pending</button>
+              <button class="btn btn-ghost qf" data-qf="processing" style="padding:4px 8px;font-size:11px">Active</button>
+              <button class="btn btn-ghost qf" data-qf="error" style="padding:4px 8px;font-size:11px">Errors</button>
+              <button class="btn btn-ghost qf" data-qf="done" style="padding:4px 8px;font-size:11px">Done</button>
+            </div>
+          </div>
+          <table class="table"><thead><tr><th>URL</th><th>Owner</th><th>Status</th><th>Error</th><th>When</th><th></th></tr></thead><tbody id="queue-body"><tr><td colspan="6" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="card" style="padding:14px;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+            <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Storage</h3>
+            <button id="refresh-storage" class="btn btn-ghost" style="padding:6px 10px">↺</button>
+          </div>
+          <div id="storage-summary" style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">loading…</div>
+          <table class="table"><thead><tr><th>Orphan file</th><th>Size</th><th>Created</th><th></th></tr></thead><tbody id="orphans-body"><tr><td colspan="4" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+        </div>
+        <div class="card" style="padding:14px;overflow:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+            <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary)">Trash (restore / purge files)</h3>
+            <button id="refresh-trash" class="btn btn-ghost" style="padding:6px 10px">↺</button>
+          </div>
+          <table class="table"><thead><tr><th>Title</th><th>Deleted</th><th>File</th><th></th></tr></thead><tbody id="trash-body"><tr><td colspan="4" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
         </div>
       </div>
       <div class="card" style="padding:14px">
         <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Setup</h3>
-        <p class="sub" style="margin:0">Seed admin: in Supabase SQL Editor run<br><code>insert into public.admin_users(user_id) select id from auth.users where email='you@example.com' on conflict do nothing;</code><br>Then reload. Uses <code>public.is_admin()</code> + additive policies — no effect on <code>music.html</code> behavior.</p>
+        <p class="sub" style="margin:0">Seed admin: in Supabase SQL Editor run<br><code>insert into public.admin_users(user_id) select id from auth.users where email='you@example.com' on conflict do nothing;</code><br>Then run <code>supabase-setup.sql</code> once, then <code>supabase-admin-users.sql</code> for Users / retry / heartbeat / trash-restore / orphan-report features (cards show what to run when RPCs are missing). Uses <code>public.is_admin()</code> + additive policies — no effect on <code>music.html</code> behavior.</p>
       </div>
+    </div>
+  </div>
+  <div id="edit-modal" class="modal" style="display:none" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3>Edit track</h3>
+      <p class="sub" id="edit-sub"></p>
+      <input id="edit-title" placeholder="Title" style="margin-bottom:8px">
+      <input id="edit-artist" placeholder="Artist" style="margin-bottom:10px">
+      <div class="row"><button id="edit-save" class="btn btn-main" style="flex:1">Save</button><button id="edit-cancel" class="btn btn-ghost" style="flex:1">Cancel</button></div>
     </div>
   </div>
 </div>
@@ -194,45 +251,52 @@ async function loadStats(){
     ['Queue errors', s?.queue_errors??0],
     ['Playlists', s?.playlists_total??0],
     ['Plays (events)', s?.plays_total??0],
-    ['Views', s?.views_total??0],
+    ['Users', s?.approved_total!=null ? `${s.approved_total}/${s.users_total??'?'}` : (s?.users_total??'—')],
+    ['Storage', s?.storage_bytes!=null ? fmtBytes(s.storage_bytes) : '—'],
   ];
   kpis.innerHTML=items.map(([k,v])=>`<div class="kpi"><small>${esc(k)}</small><strong>${esc(v)}</strong></div>`).join('');
 
-  // leaderboard
+  // leaderboard (with owner, edit, select + trash instead of hard delete)
   const lb=$('leader-body');
-  const { data: leader, error: e2 } = await sb.from('v_track_leaderboard').select('*').order('plays', {ascending:false}).limit(20);
+  const { data: leader, error: e2 } = await sb.from('v_track_leaderboard').select('*').order('plays', {ascending:false}).limit(50);
   let rows=leader;
   if(e2){
     // fallback aggregate client-side from events + tracks
-    const { data: tracks } = await sb.from('tracks').select('id,title,artist,extractor,storage_path').limit(200);
+    const { data: tracks } = await sb.from('tracks').select('id,title,artist,extractor,extractor_id,storage_path,owner_id,file_size,created_at').limit(200);
     const { data: evs } = await sb.from('track_events').select('track_id,event').in('event',['play','view','queue']).limit(5000);
     const map={}; (evs||[]).forEach(r=>{ map[r.track_id]=map[r.track_id]||{plays:0,views:0,queues:0}; if(r.event==='play') map[r.track_id].plays++; if(r.event==='view') map[r.track_id].views++; if(r.event==='queue') map[r.track_id].queues++; });
-    rows=(tracks||[]).map(t=>({...t, plays:map[t.id]?.plays||0, views:map[t.id]?.views||0, queues:map[t.id]?.queues||0})).sort((a,b)=>b.plays-a.plays).slice(0,20);
+    rows=(tracks||[]).map(t=>({...t, plays:map[t.id]?.plays||0, views:map[t.id]?.views||0, queues:map[t.id]?.queues||0})).sort((a,b)=>b.plays-a.plays).slice(0,50);
   }
-  if(!rows || !rows.length) lb.innerHTML=`<tr><td colspan="7" style="color:var(--text-tertiary)">No data yet — play a track to generate events.</td></tr>`;
-  else lb.innerHTML=rows.map(r=>`<tr><td title="${esc(r.title)}">${esc((r.title||'').slice(0,40))}</td><td>${esc((r.artist||'').slice(0,24))}</td><td>${esc(r.extractor||'')}</td><td>${esc(r.plays||0)}</td><td>${esc(r.views||0)}</td><td>${esc(r.queues||0)}</td><td><button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0;border-color:#3a2a2a;background:#1f1414" data-del="${esc(r.id)}" data-path="${esc(r.storage_path||'')}" data-title="${esc((r.title||'track').replace(/"/g,'&quot;'))}">✕ Delete</button></td></tr>`).join('');
-  // bind delete handlers
+  leaderRows = rows||[];
+  selectedTracks = new Set([...selectedTracks].filter(id=>leaderRows.some(r=>r.id===id)));
+  updateBulkBar();
+  if(!rows || !rows.length) lb.innerHTML=`<tr><td colspan="8" style="color:var(--text-tertiary)">No data yet — play a track to generate events.</td></tr>`;
+  else lb.innerHTML=rows.map(r=>{
+    const owner = r.owner_id && rosterById[r.owner_id] ? rosterById[r.owner_id].email : (r.owner_id ? r.owner_id.slice(0,8) : '—');
+    const checked = selectedTracks.has(r.id) ? 'checked' : '';
+    return `<tr><td><input type="checkbox" data-sel="${esc(r.id)}" ${checked} aria-label="Select track"></td><td title="${esc(r.title)}">${esc((r.title||'').slice(0,40))}</td><td>${esc((r.artist||'').slice(0,24))}</td><td title="${esc(owner)}">${esc(String(owner).slice(0,24))}</td><td>${esc(r.plays||0)}</td><td>${esc(r.views||0)}</td><td>${esc(r.queues||0)}</td><td style="white-space:nowrap"><button class="btn btn-ghost" style="padding:4px 8px" data-edit="${esc(r.id)}" data-title="${esc(r.title||'')}" data-artist="${esc(r.artist||'')}">Edit</button> <button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0;border-color:#3a2a2a;background:#1f1414" data-del="${esc(r.id)}" data-title="${esc((r.title||'track').replace(/"/g,'&quot;'))}">Trash</button></td></tr>`;
+  }).join('');
+  lb.querySelectorAll('[data-sel]').forEach(cb=> cb.addEventListener('change', ()=>{
+    const id=cb.getAttribute('data-sel');
+    if(cb.checked) selectedTracks.add(id); else selectedTracks.delete(id);
+    updateBulkBar();
+  }));
+  lb.querySelectorAll('[data-edit]').forEach(btn=> btn.addEventListener('click', ()=>{
+    openEdit(btn.getAttribute('data-edit'), btn.getAttribute('data-title')||'', btn.getAttribute('data-artist')||'');
+  }));
   lb.querySelectorAll('[data-del]').forEach(btn=>{
     btn.addEventListener('click', async()=>{
       const id=btn.getAttribute('data-del');
-      const storagePath=btn.getAttribute('data-path');
       const title=btn.getAttribute('data-title')||'this track';
-      if(!confirm(`Delete "${title}"?\n\nThis removes DB row + MP3 file from tracks bucket. Playlist entries cascade. Cannot undo.`)) return;
+      if(!confirm(`Move "${title}" to trash?\n\nRow + playlist entries are removed, the MP3 file is KEPT — restore or purge the file from Trash.`)) return;
       btn.disabled=true; btn.textContent='…';
       try{
-        // audit log (optional)
-        try{ await sb.from('deleted_tracks').insert({id, title, storage_path: storagePath, deleted_by: currentUser?.id}); }catch{}
-        if(storagePath){
-          const { error: sErr } = await sb.storage.from('tracks').remove([storagePath]);
-          if(sErr) console.warn('storage delete', sErr.message);
-        }
-        const { error } = await sb.from('tracks').delete().eq('id', id);
-        if(error) throw error;
-        toast('Deleted '+title);
+        await trashTrack(id, false);
+        toast('Moved to trash');
         await loadStats();
       }catch(e){
-        toast.error('Delete failed: '+e.message);
-        btn.disabled=false; btn.textContent='✕ Delete';
+        toast.error('Trash failed: '+e.message);
+        btn.disabled=false; btn.textContent='Trash';
       }
     });
   });
@@ -275,40 +339,362 @@ async function loadStats(){
     }
   }
 
-  // pending approvals — single renderer shared by loadPending + manual refresh
-  // (fixes: refresh-pending used to rebuild buttons without rebinding Approve)
-  function renderPendingRows(data){
-    const body=$('pending-body'); if(!body) return;
-    if(!data?.length) body.innerHTML=`<tr><td colspan="3" style="color:var(--text-tertiary)">No pending — all users approved</td></tr>`;
-    else body.innerHTML=data.map(u=>`<tr><td>${esc(u.email)}</td><td>${esc(new Date(u.created_at).toLocaleString())}</td><td><button class="btn btn-main" style="padding:4px 10px" data-approve="${esc(u.id)}">Approve</button></td></tr>`).join('');
-    body.querySelectorAll('[data-approve]').forEach(b=>{
-      b.addEventListener('click', async()=>{
-        const id=b.getAttribute('data-approve');
-        b.disabled=true; b.textContent='…';
-        const { error } = await sb.from('approved_users').insert({user_id:id, approved_by: currentUser?.id});
-        if(error) toast.error('Approve failed: '+error.message);
-        else { toast('Approved'); await loadPending(); await loadStats(); }
-        b.disabled=false; b.textContent='Approve';
-      });
-    });
-  }
-  async function loadPending(){
-    const body=$('pending-body'); if(!body) return;
-    const { data, error } = await sb.rpc('get_pending_users');
-    if(error){ body.innerHTML=`<tr><td colspan="3" style="color:var(--danger)">${esc(error.message)}</td></tr>`; return; }
-    renderPendingRows(data);
-  }
-
-  // queue health
-  const qBody=$('queue-body');
-  const { data: qrows } = await sb.from('ingest_queue').select('original_url,status,error,created_at').order('created_at',{ascending:false}).limit(20);
-  if(!qrows?.length) qBody.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">No queue rows</td></tr>`;
-  else qBody.innerHTML=qrows.map(r=>{
-    const st=r.status==='error'?`<span class="badge-err">error</span>`:`<span class="badge">${esc(r.status)}</span>`;
-    return `<tr><td title="${esc(r.original_url)}">${esc(r.original_url.slice(0,38))}</td><td>${st}</td><td>${esc((r.error||'').slice(0,40))}</td><td>${esc(new Date(r.created_at).toLocaleString())}</td></tr>`;
-  }).join('');
   await loadPending();
+  await loadUsers();
+  await loadQueue();
+  await loadPlaylistsAdmin();
+  await loadStorage();
+  await loadTrash();
+  await loadHeartbeat();
 }
+
+function fmtBytes(b){
+  b=Number(b||0);
+  if(b<1024) return b+' B';
+  if(b<1024*1024) return (b/1024).toFixed(1)+' KB';
+  if(b<1024*1024*1024) return (b/1024/1024).toFixed(1)+' MB';
+  return (b/1024/1024/1024).toFixed(2)+' GB';
+}
+function fmtDate(s){ try{ return new Date(s).toLocaleString(); }catch{ return String(s||'—'); } }
+let roster=[];
+let rosterById={};
+let queueFilter='all';
+let queueRows=[];
+let leaderRows=[];
+let selectedTracks=new Set();
+
+function updateBulkBar(){
+  const b=$('bulk-del-btn'), c=$('bulk-count');
+  if(!b||!c) return;
+  b.style.display = selectedTracks.size ? '' : 'none';
+  c.textContent = selectedTracks.size;
+}
+
+// --- Trash primitives (snapshot row, remove row, optionally delete file) ---
+async function trashTrack(id, deleteFile){
+  const { data: tr, error: e0 } = await sb.from('tracks').select('*').eq('id', id).maybeSingle();
+  if(e0) throw e0;
+  if(!tr) throw new Error('Track not found (already removed?)');
+  const snap={ id: tr.id, title: tr.title, artist: tr.artist, storage_path: tr.storage_path,
+    owner_id: tr.owner_id||null, original_url: tr.original_url||null, canonical_url: tr.canonical_url||null,
+    extractor: tr.extractor||null, thumbnail_url: tr.thumbnail_url||null,
+    duration_sec: tr.duration_sec??null, file_size: tr.file_size??null,
+    file_deleted: !!deleteFile, deleted_by: currentUser?.id||null };
+  const { error: e1 } = await sb.from('deleted_tracks').insert(snap);
+  if(e1) throw e1;
+  if(deleteFile && tr.storage_path){
+    const { error: sErr } = await sb.storage.from('tracks').remove([tr.storage_path]);
+    if(sErr) console.warn('storage delete', sErr.message);
+  }
+  const { error: e2 } = await sb.from('tracks').delete().eq('id', id);
+  if(e2) throw e2;
+  selectedTracks.delete(id);
+}
+async function restoreTrash(deletedAt, rowId){
+  const { data: rows, error } = await sb.from('deleted_tracks').select('*').eq('deleted_at', deletedAt).limit(10);
+  if(error) throw error;
+  const snap=(rows||[]).find(r=>r.id===rowId) || rows?.[0];
+  if(!snap) throw new Error('Trash entry not found');
+  if(snap.file_deleted) throw new Error('MP3 file was purged — cannot restore audio');
+  if(!snap.original_url) throw new Error('No snapshot URL (trashed by old version) — cannot restore');
+  const { error: e2 } = await sb.from('tracks').insert({
+    id: snap.id, original_url: snap.original_url, canonical_url: snap.canonical_url,
+    extractor: snap.extractor, title: snap.title||'Untitled', artist: snap.artist,
+    thumbnail_url: snap.thumbnail_url, storage_path: snap.storage_path,
+    duration_sec: snap.duration_sec, file_size: snap.file_size, owner_id: snap.owner_id
+  });
+  if(e2) throw e2;
+  await sb.from('deleted_tracks').delete().eq('deleted_at', deletedAt).eq('id', snap.id);
+}
+async function purgeTrashFile(deletedAt, rowId, path){
+  if(!path) throw new Error('No file path');
+  const { error } = await sb.storage.from('tracks').remove([path]);
+  if(error) throw error;
+  await sb.from('deleted_tracks').update({file_deleted:true}).eq('deleted_at', deletedAt).eq('id', rowId);
+}
+
+// --- Pending approvals (top-level so manual refresh can reuse it) ---
+function renderPendingRows(data){
+  const body=$('pending-body'); if(!body) return;
+  if(!data?.length) body.innerHTML=`<tr><td colspan="3" style="color:var(--text-tertiary)">No pending — all users approved</td></tr>`;
+  else body.innerHTML=data.map(u=>`<tr><td>${esc(u.email)}</td><td>${fmtDate(u.created_at)}</td><td><button class="btn btn-main" style="padding:4px 10px" data-approve="${esc(u.id)}">Approve</button></td></tr>`).join('');
+  body.querySelectorAll('[data-approve]').forEach(b=>{
+    b.addEventListener('click', async()=>{
+      const id=b.getAttribute('data-approve');
+      b.disabled=true; b.textContent='…';
+      try{
+        const { error } = await sb.rpc('set_approved', {p_user:id, p_approve:true});
+        if(error) throw error;
+        toast('Approved'); await loadPending(); await loadUsers(); await loadStats();
+      }catch(e){ toast.error('Approve failed: '+e.message); }
+      b.disabled=false; b.textContent='Approve';
+    });
+  });
+}
+async function loadPending(){
+  const body=$('pending-body'); if(!body) return;
+  try{
+    const { data, error } = await sb.rpc('get_pending_users');
+    if(error) throw error;
+    renderPendingRows(data);
+  }catch(e){ body.innerHTML=`<tr><td colspan="3" style="color:var(--danger)">${esc(e.message)}</td></tr>`; }
+}
+
+// --- Users roster + drilldown + purge ---
+async function loadUsers(){
+  const body=$('users-body'); if(!body) return;
+  try{
+    const { data, error } = await sb.rpc('get_all_users');
+    if(error) throw error;
+    roster=data||[];
+    rosterById={}; roster.forEach(u=>{ rosterById[u.id]=u; });
+    renderUsers();
+  }catch(e){
+    body.innerHTML=`<tr><td colspan="8" style="color:var(--danger)">${esc(e.message)} — run supabase-admin-users.sql</td></tr>`;
+  }
+}
+function userStatus(u){
+  if(u.is_admin) return '<span class="badge" style="color:var(--accent);border-color:var(--accent-line)">admin</span>';
+  if(u.approved) return '<span class="badge">approved</span>';
+  return '<span class="badge" style="color:var(--danger);border-color:var(--danger-border)">pending</span>';
+}
+function renderUsers(){
+  const body=$('users-body'); if(!body) return;
+  const q=(($('user-search')?.value)||'').toLowerCase();
+  const list=roster.filter(u=>!q || (u.email||'').toLowerCase().includes(q));
+  if(!list.length){ body.innerHTML=`<tr><td colspan="8" style="color:var(--text-tertiary)">${roster.length?'No users match':'No users yet'}</td></tr>`; return; }
+  body.innerHTML=list.map(u=>{
+    const qp = Number(u.q_pending||0)+0, qe = Number(u.q_errors||0);
+    const qcell = (qp||qe) ? `${qp} pend · ${qe} err` : '—';
+    return `<tr>
+      <td title="${esc(u.email||'')}">${esc((u.email||'—').slice(0,34))}</td>
+      <td>${userStatus(u)}</td>
+      <td>${esc(u.tracks??0)}</td>
+      <td>${esc(u.plays??0)}</td>
+      <td>${fmtBytes(u.bytes)}</td>
+      <td>${qcell}</td>
+      <td>${fmtDate(u.created_at)}</td>
+      <td style="white-space:nowrap">
+        ${u.approved
+          ? `<button class="btn btn-ghost" style="padding:4px 8px" data-revoke="${esc(u.id)}" title="Revoke access (keeps content)">Revoke</button>`
+          : `<button class="btn btn-main" style="padding:4px 8px" data-approve2="${esc(u.id)}">Approve</button>`}
+        ${u.is_admin
+          ? `<button class="btn btn-ghost" style="padding:4px 8px" data-unadmin="${esc(u.id)}" title="Remove admin role">Demote</button>`
+          : `<button class="btn btn-ghost" style="padding:4px 8px" data-mkadmin="${esc(u.id)}" title="Grant admin role">Admin</button>`}
+        <button class="btn btn-ghost" style="padding:4px 8px" data-inspect="${esc(u.id)}">Inspect</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-purge="${esc(u.id)}" data-email="${esc((u.email||'user').replace(/"/g,'&quot;'))}" title="Trash tracks, cancel queue, delete playlists, revoke">Purge</button>
+      </td>
+    </tr>`;
+  }).join('');
+  bindUserActions(body);
+}
+function bindUserActions(root){
+  root.querySelectorAll('[data-approve2]').forEach(b=> b.addEventListener('click', async()=>{
+    b.disabled=true; try{ const {error}=await sb.rpc('set_approved',{p_user:b.dataset.approve2,p_approve:true}); if(error) throw error; toast('Approved'); await loadUsers(); await loadPending(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
+  }));
+  root.querySelectorAll('[data-revoke]').forEach(b=> b.addEventListener('click', async()=>{
+    const u=rosterById[b.dataset.revoke]; const em=u?.email||'this user';
+    if(!confirm(`Revoke access for ${em}?\n\nThey lose the library immediately. Their tracks, queue and playlists are KEPT (use Purge to remove content too).`)) return;
+    b.disabled=true; try{ const {error}=await sb.rpc('set_approved',{p_user:b.dataset.revoke,p_approve:false}); if(error) throw error; toast('Access revoked'); await loadUsers(); await loadPending(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
+  }));
+  root.querySelectorAll('[data-mkadmin]').forEach(b=> b.addEventListener('click', async()=>{
+    if(!confirm('Grant admin role? Admins can delete anything and manage users.')) return;
+    b.disabled=true; try{ const {error}=await sb.rpc('set_admin',{p_user:b.dataset.mkadmin,p_make:true}); if(error) throw error; toast('Admin granted'); await loadUsers(); }catch(e){ toast.error(e.message); } b.disabled=false;
+  }));
+  root.querySelectorAll('[data-unadmin]').forEach(b=> b.addEventListener('click', async()=>{
+    if(!confirm('Remove admin role?')) return;
+    b.disabled=true; try{ const {error}=await sb.rpc('set_admin',{p_user:b.dataset.unadmin,p_make:false}); if(error) throw error; toast('Admin removed'); await loadUsers(); }catch(e){ toast.error(e.message); } b.disabled=false;
+  }));
+  root.querySelectorAll('[data-inspect]').forEach(b=> b.addEventListener('click', ()=> inspectUser(b.dataset.inspect)));
+  root.querySelectorAll('[data-purge]').forEach(b=> b.addEventListener('click', ()=> purgeUser(b.dataset.purge, b.dataset.purgeEmail||b.dataset.email||'user')));
+}
+async function inspectUser(uid){
+  const u=rosterById[uid]; if(!u) return;
+  const box=$('user-detail'); if(!box) return;
+  box.style.display='block';
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><strong style="font-size:13px">${esc(u.email||uid)}</strong><button id="ud-close" class="btn btn-ghost" style="padding:4px 10px">Close</button></div><div style="color:var(--text-tertiary);font-size:12.5px">loading…</div>`;
+  $('ud-close')?.addEventListener('click', ()=>{ box.style.display='none'; box.innerHTML=''; });
+  try{
+    const [tr, q, ev] = await Promise.all([
+      sb.from('tracks').select('id,title,artist,created_at').eq('owner_id', uid).order('created_at',{ascending:false}).limit(30),
+      sb.from('ingest_queue').select('id,original_url,status,error,created_at').eq('owner_id', uid).order('created_at',{ascending:false}).limit(30),
+      sb.from('track_events').select('event,created_at,track_id').eq('user_id', uid).order('created_at',{ascending:false}).limit(20)
+    ]);
+    const tracks=tr.data||[], queue=q.data||[], events=ev.data||[];
+    let titleMap={};
+    const tids=[...new Set([...tracks.map(t=>t.id), ...events.map(e=>e.track_id)].filter(Boolean))].slice(0,60);
+    if(tids.length){ const {data:ts}=await sb.from('tracks').select('id,title').in('id', tids); (ts||[]).forEach(t=>titleMap[t.id]=t.title); }
+    const row=(l,v)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px"><span style="color:var(--text-secondary)">${l}</span><strong>${v}</strong></div>`;
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><strong style="font-size:13px">${esc(u.email||uid)}</strong><button id="ud-close" class="btn btn-ghost" style="padding:4px 10px">Close</button></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
+        <div>${row('Tracks', tracks.length)}${row('Queue items', queue.length)}${row('Recent events', events.length)}${row('Storage', fmtBytes(u.bytes))}</div>
+        <div><h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:4px">Latest tracks</h4>${tracks.slice(0,8).map(t=>`<div style="font-size:12.5px;padding:3px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(t.title||'')}">${esc((t.title||'—').slice(0,36))}</div>`).join('')||'<small style="color:var(--text-tertiary)">none</small>'}</div>
+        <div><h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:4px">Queue</h4>${queue.slice(0,8).map(r=>`<div style="font-size:12.5px;padding:3px 0"><span class="badge">${esc(r.status)}</span> <span title="${esc(r.original_url)}">${esc(r.original_url.slice(0,30))}</span></div>`).join('')||'<small style="color:var(--text-tertiary)">none</small>'}</div>
+        <div><h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:4px">Recent activity</h4>${events.slice(0,8).map(e=>`<div style="font-size:12.5px;padding:3px 0"><span class="badge">${esc(e.event)}</span> ${esc((titleMap[e.track_id]||e.track_id||'').slice(0,26))}</div>`).join('')||'<small style="color:var(--text-tertiary)">none</small>'}</div>
+      </div>`;
+    $('ud-close')?.addEventListener('click', ()=>{ box.style.display='none'; box.innerHTML=''; });
+  }catch(e){ box.innerHTML=`<div style="color:var(--danger);font-size:12.5px">${esc(e.message)}</div>`; }
+}
+async function purgeUser(uid, email){
+  if(!confirm(`PURGE ${email}?\n\n1. Their tracks → trash (files deleted)\n2. Their queue rows → cancelled\n3. Their playlists → deleted\n4. Access → revoked\n\nCannot undo.`)) return;
+  if(!confirm(`Really purge ${email}? Last chance.`)) return;
+  toast('Purging…');
+  try{
+    const { data: trs } = await sb.from('tracks').select('id').eq('owner_id', uid).limit(500);
+    let n=0;
+    for(const t of (trs||[])){ try{ await trashTrack(t.id, true); n++; }catch(e){ console.warn('purge track', t.id, e.message); } }
+    await sb.from('ingest_queue').delete().eq('owner_id', uid);
+    await sb.from('playlists').delete().eq('owner_id', uid);
+    await sb.rpc('set_approved', {p_user:uid, p_approve:false});
+    toast(`Purged ${email} (${n} tracks)`);
+    await loadUsers(); await loadPending(); await loadStats(); await loadTrash();
+  }catch(e){ toast.error('Purge failed: '+e.message); }
+}
+
+// --- Queue: owner column, filters, retry, cancel ---
+async function loadQueue(){
+  const body=$('queue-body'); if(!body) return;
+  try{
+    const { data, error } = await sb.from('ingest_queue').select('id,original_url,owner_id,status,error,attempts,created_at').order('created_at',{ascending:false}).limit(60);
+    if(error) throw error;
+    queueRows=data||[];
+    renderQueue();
+  }catch(e){ body.innerHTML=`<tr><td colspan="6" style="color:var(--danger)">${esc(e.message)}</td></tr>`; }
+}
+function renderQueue(){
+  const body=$('queue-body'); if(!body) return;
+  const list=queueRows.filter(r=>queueFilter==='all' || r.status===queueFilter || (queueFilter==='processing' && r.status==='processing'));
+  document.querySelectorAll('#queue-filters .qf').forEach(b=> b.classList.toggle('btn-main', b.dataset.qf===queueFilter));
+  if(!list.length){ body.innerHTML=`<tr><td colspan="6" style="color:var(--text-tertiary)">No ${queueFilter==='all'?'':queueFilter+' '}queue rows</td></tr>`; return; }
+  body.innerHTML=list.map(r=>{
+    const owner=r.owner_id && rosterById[r.owner_id] ? rosterById[r.owner_id].email : (r.owner_id? r.owner_id.slice(0,8) : '—');
+    const st=r.status==='error'?`<span class="badge-err">error${r.attempts?` ×${r.attempts}`:''}</span>`:`<span class="badge">${esc(r.status)}</span>`;
+    const acts=[
+      r.status==='error' ? `<button class="btn btn-ghost" style="padding:4px 8px" data-retry="${esc(r.id)}">Retry</button>` : '',
+      (r.status==='pending'||r.status==='error') ? `<button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-cancel="${esc(r.id)}">Cancel</button>` : ''
+    ].join(' ');
+    return `<tr><td title="${esc(r.original_url)}">${esc(r.original_url.slice(0,34))}</td><td title="${esc(owner)}">${esc(String(owner).slice(0,22))}</td><td>${st}</td><td>${esc((r.error||'').slice(0,36))}</td><td>${fmtDate(r.created_at)}</td><td style="white-space:nowrap">${acts}</td></tr>`;
+  }).join('');
+  body.querySelectorAll('[data-retry]').forEach(b=> b.addEventListener('click', async()=>{
+    b.disabled=true; try{ const {error}=await sb.rpc('retry_queue',{p_id:b.dataset.retry}); if(error) throw error; toast('Re-queued'); await loadQueue(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
+  }));
+  body.querySelectorAll('[data-cancel]').forEach(b=> b.addEventListener('click', async()=>{
+    if(!confirm('Cancel this queued URL?')) return;
+    b.disabled=true; try{ const {error}=await sb.from('ingest_queue').delete().eq('id', b.dataset.cancel); if(error) throw error; toast('Cancelled'); await loadQueue(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
+  }));
+}
+
+// --- Worker heartbeat ---
+async function loadHeartbeat(){
+  const bar=$('worker-banner'); if(!bar) return;
+  bar.style.display='none';
+  try{
+    const { data, error } = await sb.rpc('get_worker_status');
+    if(error) throw error;
+    const w=(data&&data[0])||data||{};
+    const pend=Number(w.pending||0), stale=Number(w.stale_processing||0), errs=Number(w.total_errors||0);
+    const lastDone=w.last_done_at ? new Date(w.last_done_at) : null;
+    const idleMin=lastDone ? Math.round((Date.now()-lastDone.getTime())/60000) : null;
+    const dead=(pend>0 && (idleMin==null || idleMin>30)) || stale>0;
+    if(dead){
+      bar.style.display='block';
+      bar.innerHTML=`<strong>Worker may be offline.</strong> ${pend} item(s) waiting${stale?`, ${stale} stale processing`:''}${idleMin!=null?`, last finished ${idleMin} min ago`:', nothing ever finished'}. Run on laptop: <code>node tools/ingest.js --watch</code>${errs?` · ${errs} error(s) need retry`:''}`;
+    }
+  }catch(e){ /* heartbeat needs supabase-admin-users.sql — silent */ }
+}
+
+// --- Playlists (admin read + delete) ---
+async function loadPlaylistsAdmin(){
+  const body=$('playlists-body'); if(!body) return;
+  try{
+    const [pls, pts] = await Promise.all([
+      sb.from('playlists').select('id,name,owner_id,created_at').order('created_at',{ascending:false}).limit(100),
+      sb.from('playlist_tracks').select('playlist_id')
+    ]);
+    if(pls.error) throw pls.error;
+    const counts={}; (pts.data||[]).forEach(r=>{ counts[r.playlist_id]=(counts[r.playlist_id]||0)+1; });
+    const list=pls.data||[];
+    if(!list.length){ body.innerHTML=`<tr><td colspan="5" style="color:var(--text-tertiary)">No playlists</td></tr>`; return; }
+    body.innerHTML=list.map(p=>{
+      const owner=p.owner_id && rosterById[p.owner_id] ? rosterById[p.owner_id].email : (p.owner_id? p.owner_id.slice(0,8):'—');
+      return `<tr><td>${esc(p.name)}</td><td title="${esc(owner)}">${esc(String(owner).slice(0,24))}</td><td>${counts[p.id]||0}</td><td>${fmtDate(p.created_at)}</td><td><button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-delpl="${esc(p.id)}" data-name="${esc((p.name||'').replace(/"/g,'&quot;'))}">Delete</button></td></tr>`;
+    }).join('');
+    body.querySelectorAll('[data-delpl]').forEach(b=> b.addEventListener('click', async()=>{
+      if(!confirm(`Delete playlist "${b.dataset.name||'?'}"? Songs stay in the library.`)) return;
+      b.disabled=true; try{ const {error}=await sb.from('playlists').delete().eq('id', b.dataset.delpl); if(error) throw error; toast('Playlist deleted'); await loadPlaylistsAdmin(); await loadStats(); }catch(e){ toast.error('Delete failed (run supabase-admin-users.sql for the admin policy): '+e.message); } b.disabled=false;
+    }));
+  }catch(e){ body.innerHTML=`<tr><td colspan="5" style="color:var(--danger)">${esc(e.message)}</td></tr>`; }
+}
+
+// --- Storage: measured usage + orphans ---
+async function loadStorage(){
+  const sum=$('storage-summary'), body=$('orphans-body');
+  try{
+    const { data: s } = await sb.from('v_admin_stats').select('storage_bytes,tracks_total').maybeSingle();
+    if(sum) sum.innerHTML = s ? `<strong style="color:var(--text)">${fmtBytes(s.storage_bytes)}</strong> across ${s.tracks_total??0} tracks (measured from file sizes)` : 'Run supabase-admin-users.sql for measured storage.';
+  }catch{ if(sum) sum.textContent='Storage stats unavailable'; }
+  if(!body) return;
+  try{
+    const { data, error } = await sb.rpc('get_orphan_files');
+    if(error) throw error;
+    const rows=data||[];
+    if(!rows.length){ body.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">No orphan files — bucket matches the library</td></tr>`; return; }
+    body.innerHTML=rows.map(f=>`<tr><td title="${esc(f.name)}">${esc(f.name.slice(0,40))}</td><td>${fmtBytes(f.bytes)}</td><td>${fmtDate(f.created)}</td><td><button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-orphan="${esc(f.name)}">Delete</button></td></tr>`).join('');
+    body.querySelectorAll('[data-orphan]').forEach(b=> b.addEventListener('click', async()=>{
+      if(!confirm(`Delete orphan file?\n${b.dataset.orphan}\nNo track references it.`)) return;
+      b.disabled=true; try{ const {error}=await sb.storage.from('tracks').remove([b.dataset.orphan]); if(error) throw error; toast('Orphan deleted'); await loadStorage(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
+    }));
+  }catch(e){ body.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">${esc(e.message)} — run supabase-admin-users.sql</td></tr>`; }
+}
+
+// --- Trash: restore or purge files ---
+async function loadTrash(){
+  const body=$('trash-body'); if(!body) return;
+  try{
+    const { data, error } = await sb.from('deleted_tracks').select('*').order('deleted_at',{ascending:false}).limit(50);
+    if(error) throw error;
+    const rows=data||[];
+    if(!rows.length){ body.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">Trash is empty</td></tr>`; return; }
+    body.innerHTML=rows.map(r=>{
+      const canRestore = !r.file_deleted && !!r.original_url;
+      return `<tr><td title="${esc(r.title||'')}">${esc((r.title||'—').slice(0,34))}</td><td>${fmtDate(r.deleted_at)}</td><td>${r.file_deleted?'<span class="badge-err">purged</span>':'<span class="badge">kept</span>'}</td><td style="white-space:nowrap">
+        ${canRestore?`<button class="btn btn-ghost" style="padding:4px 8px" data-restore="${esc(r.deleted_at)}" data-rid="${esc(r.id)}">Restore</button>`:''}
+        ${(!r.file_deleted && r.storage_path)?`<button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-purgefile="${esc(r.deleted_at)}" data-rid="${esc(r.id)}" data-path="${esc(r.storage_path)}">Delete file</button>`:''}
+      </td></tr>`;
+    }).join('');
+    body.querySelectorAll('[data-restore]').forEach(b=> b.addEventListener('click', async()=>{
+      b.disabled=true; try{ await restoreTrash(b.dataset.restore, b.dataset.rid); toast('Restored to library'); await loadTrash(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
+    }));
+    body.querySelectorAll('[data-purgefile]').forEach(b=> b.addEventListener('click', async()=>{
+      if(!confirm('Permanently delete the MP3? The trash entry stays as audit, but restore becomes impossible.')) return;
+      b.disabled=true; try{ await purgeTrashFile(b.dataset.purgefile, b.dataset.rid, b.dataset.path); toast('File purged'); await loadTrash(); await loadStorage(); }catch(e){ toast.error(e.message); } b.disabled=false;
+    }));
+  }catch(e){ body.innerHTML=`<tr><td colspan="4" style="color:var(--danger)">${esc(e.message)}</td></tr>`; }
+}
+
+// --- Edit track metadata ---
+let editId=null;
+function openEdit(id, title, artist){
+  editId=id;
+  $('edit-title').value=title||'';
+  $('edit-artist').value=artist||'';
+  $('edit-sub').textContent='Fix typos or missing artist — updates everywhere instantly.';
+  $('edit-modal').style.display='grid';
+  setTimeout(()=>$('edit-title').focus(), 60);
+}
+function closeEdit(){ editId=null; $('edit-modal').style.display='none'; }
+$('edit-cancel')?.addEventListener('click', closeEdit);
+$('edit-modal')?.addEventListener('click', e=>{ if(e.target.id==='edit-modal') closeEdit(); });
+$('edit-save')?.addEventListener('click', async()=>{
+  if(!editId) return;
+  const title=$('edit-title').value.trim(), artist=$('edit-artist').value.trim();
+  if(!title) return toast.error('Title cannot be empty');
+  try{
+    const { error } = await sb.from('tracks').update({title, artist: artist||null}).eq('id', editId);
+    if(error) throw error;
+    toast('Saved'); closeEdit(); await loadStats();
+  }catch(e){ toast.error('Save failed (run supabase-admin-users.sql for the admin policy): '+e.message); }
+});
 
 async function init(){
   const { data:{session} } = await sb.auth.getSession();
@@ -321,12 +707,29 @@ sb.auth.onAuthStateChange(async(_,s)=>{ currentUser=s?.user||null; renderAuth();
 $('refresh-btn')?.addEventListener('click', loadStats);
 $('refresh-pending')?.addEventListener('click', async()=>{
   const b=$('refresh-pending'); if(b) b.textContent='…';
-  try{
-    const { data, error } = await sb.rpc('get_pending_users');
-    if(error) toast.error(error.message);
-    else renderPendingRows(data);
-  } finally { if(b) b.textContent='↺'; }
+  try{ await loadPending(); } finally { if(b) b.textContent='↺'; }
 });
+$('refresh-users')?.addEventListener('click', loadUsers);
+$('user-search')?.addEventListener('input', renderUsers);
+$('refresh-playlists')?.addEventListener('click', loadPlaylistsAdmin);
+$('refresh-storage')?.addEventListener('click', loadStorage);
+$('refresh-trash')?.addEventListener('click', loadTrash);
+document.querySelectorAll('#queue-filters .qf').forEach(b=> b.addEventListener('click', ()=>{
+  queueFilter=b.dataset.qf; renderQueue();
+}));
+$('bulk-del-btn')?.addEventListener('click', async()=>{
+  if(!selectedTracks.size) return;
+  const n=selectedTracks.size;
+  if(!confirm(`Move ${n} track(s) to trash?\n\nFiles are KEPT — restore or purge them from Trash.`)) return;
+  toast(`Trashing ${n}…`);
+  let ok=0, fail=0;
+  for(const id of [...selectedTracks]){
+    try{ await trashTrack(id, false); ok++; }catch(e){ console.warn('bulk trash', id, e.message); fail++; }
+  }
+  toast(`Trashed ${ok}${fail?` (${fail} failed)`:''}`);
+  await loadStats(); await loadTrash();
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeEdit(); });
 init();
 </script>
 </body>

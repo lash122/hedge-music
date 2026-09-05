@@ -241,7 +241,7 @@ async function initAuth(){
     restoreUIState();
     restorePlaying();
   }
-  else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; clearSnapshot(); const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to see your private library</small>'; $('tracks-list').innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Your library is private</strong></div><small>Log in to browse your tracks and playlists.</small><button id="gate-login-btn" class="btn btn-main">Log in</button></div>`; setTimeout(()=>{ const b=$('gate-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0); }
+  else { queue=[]; playlists=[]; playlistTracks=[]; tracks=[]; clearSnapshot(); const qc=$('queue-count'); if(qc) qc.textContent='— log in to queue'; const pl=$('playlists-list'); if(pl) pl.innerHTML='<small style="color:var(--text-tertiary)">Log in to see the shared library</small>'; $('tracks-list').innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Members only</strong></div><small>Log in to browse the shared library.</small><button id="gate-login-btn" class="btn btn-main">Log in</button></div>`; setTimeout(()=>{ const b=$('gate-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0); }
 }
 sb.auth.onAuthStateChange(async (_event, session)=>{
   currentUser=session?.user||null;
@@ -283,7 +283,7 @@ function fmtTime(s){ if(!isFinite(s) || s==null) return '--:--'; const m=Math.fl
 function requireAuth(){
   if(currentUser) return true;
   showAuth('login');
-  toast('Log in to see your private library — tracks are owner-only');
+  toast('Log in to browse the shared library');
   return false;
 }
 function isMobile(){ return window.innerWidth<=860; }
@@ -596,9 +596,9 @@ async function loadTracks(reset=true, opts={}){
   }
   tracksPage++;
   const tc=$('tracks-count'); if(tc) tc.textContent = tracks.length+' tracks';
-  // private library: enforce login + approval gate
+  // members-only gate: enforce login + approval
   if(!currentUser){
-    const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Your library is private</strong></div><small>Log in to see your tracks.</small><button id="empty-login-btn" class="btn btn-main">Log in</button></div>`;
+    const el=$('tracks-list'); if(el) el.innerHTML=`<div class="empty"><div class="empty-art"><svg><use href="#i-music"/></svg></div><div><strong>Members only</strong></div><small>Log in to browse the shared library.</small><button id="empty-login-btn" class="btn btn-main">Log in</button></div>`;
     setTimeout(()=>{ const b=$('empty-login-btn'); if(b) b.addEventListener('click', ()=> showAuth('login')); },0);
     return;
   }
@@ -979,7 +979,7 @@ async function playTrack(id){
   const tr = tracks.find(t=>t.id===id);
   if(!tr) return;
   if(!tr.storage_path){ toast('File missing — re-ingest'); return; }
-  if(!currentUser){ showAuth('login'); toast('Log in to play your private tracks'); return; }
+  if(!currentUser){ showAuth('login'); toast('Log in to play tracks'); return; }
   curTrackId=id;
   buildQueueFromCurrent(id);
   const url = await getSignedUrl(tr.storage_path);

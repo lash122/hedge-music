@@ -1,6 +1,6 @@
 // Single version source for the app shell. Bump on every deploy that changes
 // music.html / music.js / music.css / admin.html / index.html / manifest.json.
-const CACHE = 'hedge-music-v28';
+const CACHE = 'hedge-music-v29';
 const TRACK_CACHE = 'tracks-v1';
 const TRACK_CACHE_MAX = 30; // LRU bound — phone storage protection
 const APP_SHELL = [

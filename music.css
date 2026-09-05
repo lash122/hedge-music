@@ -113,9 +113,9 @@
   --toast-err-fg:#ecb0b0;
   --overlay:rgba(0,0,0,.65);
   --ring-soft:rgba(99,230,126,.16);
-  --playbtn-bg:rgba(255,255,255,.12);
-  --playbtn-fg:var(--text);
-  --playbtn-border:rgba(255,255,255,.16);
+  --playbtn-bg:#f2f2f5;
+  --playbtn-fg:#0e0e11;
+  --playbtn-border:#f2f2f5;
   --play-solid:#f2f2f5;
   --play-solid-hover:#ffffff;
   --play-solid-ink:#0e0e11;
@@ -315,7 +315,7 @@ img{user-select:none;-webkit-user-drag:none}
 .t-actions .like-btn svg{width:17px;height:17px}
 .mini{padding:6px 10px;font-size:11px;border-radius:var(--radius-sm);background:transparent;border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;font-weight:500}
 .mini:hover{border-color:var(--border-strong);color:var(--text);background:var(--surface)}
-.play-mini{width:34px;height:34px;padding:0;display:grid;place-items:center;border-radius:50%;background:var(--playbtn-bg);color:var(--playbtn-fg);border:1px solid var(--playbtn-border);box-shadow:0 1px 5px rgba(23,23,35,.25);transition:all .14s var(--ease-quick)}
+.play-mini{width:34px;height:34px;padding:0;display:grid;place-items:center;border-radius:50%;background:var(--playbtn-bg);color:var(--playbtn-fg);border:1px solid var(--playbtn-border);box-shadow:0 1px 5px rgba(23,23,35,.25),0 0 0 1px rgba(255,255,255,.06);transition:all .14s var(--ease-quick)}
 .play-mini:hover{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 2px 10px rgba(var(--accent-rgb),.4)}
 .play-mini svg{width:12px;height:12px}
 .add-pl{display:none}

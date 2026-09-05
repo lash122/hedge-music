@@ -156,7 +156,7 @@ img{user-select:none;-webkit-user-drag:none}
 .pl-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.005em}
 .pl-count{color:var(--text-tertiary);font-size:11.5px;font-variant-numeric:tabular-nums;flex-shrink:0}
 .playlist-item small{color:var(--text-tertiary);font-size:11px}
-.del-pl{width:28px;height:28px;display:grid;place-items:center;background:transparent;border:1px solid transparent;padding:0;border-radius:7px;cursor:pointer;color:var(--text-tertiary);flex-shrink:0;transition:all .13s}
+.del-pl{width:28px;height:28px;display:grid;place-items:center;background:transparent;border:1px solid transparent;padding:0;border-radius:7px;cursor:pointer;color:var(--text-secondary);flex-shrink:0;transition:all .13s}
 .del-pl:hover{color:var(--danger);background:var(--danger-bg);border-color:var(--danger-border)}
 
 /* Main list */
@@ -207,17 +207,17 @@ img{user-select:none;-webkit-user-drag:none}
 .t-sub .sep{color:var(--text-tertiary);margin:0 5px;font-weight:400}
 .t-sub .plays{color:var(--text-tertiary)}
 .t-actions{display:flex;gap:2px;align-items:center}
-.t-actions .like-btn{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:transparent;border:1px solid transparent;color:var(--text-tertiary);cursor:pointer;transition:all .14s var(--ease-quick)}
+.t-actions .like-btn{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:transparent;border:1px solid transparent;color:var(--text-secondary);cursor:pointer;transition:all .14s var(--ease-quick)}
 .t-actions .like-btn:hover{color:var(--text);background:rgba(255,255,255,.06)}
 .t-actions .like-btn.liked{color:var(--accent);background:var(--accent-dim)}
 .t-actions .like-btn svg{width:17px;height:17px}
 .mini{padding:6px 10px;font-size:11px;border-radius:var(--radius-sm);background:transparent;border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;font-weight:500}
 .mini:hover{border-color:var(--border-strong);color:var(--text);background:var(--surface)}
-.play-mini{width:32px;height:32px;padding:0;display:grid;place-items:center;border-radius:50%;background:transparent;color:var(--text-secondary);border:1px solid var(--border);transition:all .14s var(--ease-quick)}
-.play-mini:hover{background:var(--text);border-color:var(--text);color:var(--bg)}
+.play-mini{width:34px;height:34px;padding:0;display:grid;place-items:center;border-radius:50%;background:rgba(255,255,255,.10);color:var(--text);border:1px solid rgba(255,255,255,.14);box-shadow:0 1px 5px rgba(0,0,0,.35);transition:all .14s var(--ease-quick)}
+.play-mini:hover{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);box-shadow:0 2px 10px rgba(111,203,126,.35)}
 .play-mini svg{width:12px;height:12px}
 .add-pl{display:none}
-.track-more{width:34px;height:34px;display:grid;place-items:center;border-radius:var(--radius-sm);background:transparent;border:1px solid transparent;color:var(--text-tertiary);cursor:pointer;transition:all .13s}
+.track-more{width:34px;height:34px;display:grid;place-items:center;border-radius:var(--radius-sm);background:transparent;border:1px solid transparent;color:var(--text-secondary);cursor:pointer;transition:all .13s}
 .track-more:hover{background:rgba(255,255,255,.06);color:var(--text)}
 .track-more svg{width:16px;height:16px}
 .t-remove{width:32px;height:32px;display:grid;place-items:center;border-radius:var(--radius-sm);background:transparent;border:1px solid var(--border);color:var(--danger);cursor:pointer;font-size:12px}
@@ -408,8 +408,8 @@ button.playing .i-pause-icon{display:inline}
 .tab-dot{width:6px;height:6px;background:var(--accent);border-radius:50%;display:inline-block;margin-left:6px;vertical-align:middle}
 
 /* Player controls icons */
-.icon-btn{background:transparent;border:1px solid transparent;color:var(--text-secondary);width:38px;height:38px;border-radius:50%;cursor:pointer;display:grid;place-items:center;font-size:12px;transition:all .14s var(--ease-quick)}
-.icon-btn:hover{color:var(--text);background:rgba(255,255,255,.07)}
+.icon-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);color:#cbcbd2;width:38px;height:38px;border-radius:50%;cursor:pointer;display:grid;place-items:center;font-size:12px;transition:all .14s var(--ease-quick)}
+.icon-btn:hover{color:#fff;background:rgba(255,255,255,.11);border-color:rgba(255,255,255,.1)}
 .icon-btn:active{transform:scale(.94)}
 .icon-btn.play{width:42px;height:42px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent);border-radius:50%;font-size:13px;box-shadow:0 2px 12px rgba(111,203,126,.32)}
 .icon-btn.play:hover{background:var(--accent-strong);border-color:var(--accent-strong);color:var(--accent-ink)}

@@ -1356,6 +1356,29 @@ try{
     .subscribe();
 }catch{}
 
+// --- Theme (light default, dark toggle, persisted) ---
+const THEME_COLORS={light:'#f1f2f4', dark:'#141417'};
+function currentTheme(){ return document.documentElement.dataset.theme==='dark' ? 'dark' : 'light'; }
+function syncThemeMeta(){
+  const m=document.querySelector('meta[name="theme-color"]');
+  if(m) m.content = THEME_COLORS[currentTheme()];
+}
+function syncThemeIcon(){
+  const b=$('theme-btn');
+  if(!b) return;
+  const dark = currentTheme()==='dark';
+  b.innerHTML=`<svg width="15" height="15"><use href="#${dark ? 'i-sun' : 'i-moon'}"/></svg>`;
+  b.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+  b.setAttribute('title', dark ? 'Switch to light mode' : 'Switch to dark mode');
+}
+function setTheme(t){
+  document.documentElement.dataset.theme = t==='dark' ? 'dark' : 'light';
+  try{ localStorage.setItem('hedge-theme', currentTheme()); }catch{}
+  syncThemeIcon(); syncThemeMeta();
+}
+$('theme-btn')?.addEventListener('click', ()=>{ vibrate(8); setTheme(currentTheme()==='dark' ? 'light' : 'dark'); });
+syncThemeIcon(); syncThemeMeta();
+
 // --- Init ---
 // NOTE: initAuth() already loads tracks/queue/playlists after session check.
 // Unconditional loads here caused double-fetch + double-render on every page load (lag).

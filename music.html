@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Hedge Music</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#141417">
+  <meta name="theme-color" content="#f1f2f4">
+  <script>(function(){try{var t=localStorage.getItem('hedge-theme')||'light';document.documentElement.dataset.theme=(t==='dark')?'dark':'light';}catch(e){document.documentElement.dataset.theme='light';}})();</script>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Hedge Music">
   <meta name="description" content="Personal music library — Supabase + laptop ingest">
-  <style>html{background:#141417}</style>
+  <style>html{background:#f1f2f4}html[data-theme="dark"]{background:#141417}</style>
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +19,7 @@
   <link rel="preconnect" href="https://mgwaehtmdecvptzzigwv.supabase.co">
   <link rel="preconnect" href="https://i.ytimg.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="music.css?v=34">
+  <link rel="stylesheet" href="music.css?v=35">
 </head>
 <body>
   <svg style="display:none" aria-hidden="true">
@@ -45,6 +46,8 @@
     <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.4 1z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/><line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/><line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/><line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z"/></symbol>
   </svg>
   <header class="topbar">
     <div class="brand">
@@ -55,6 +58,7 @@
       <span id="net-dot" class="net-dot online" title="Online"></span>
       <span id="queue-badge" class="badge" style="display:none">0 queued</span>
       <span id="storage-hint" class="hint">1GB · ~200 tracks</span>
+      <button id="theme-btn" class="btn btn-ghost btn-icon-only" title="Toggle dark mode" aria-label="Toggle dark mode"><svg width="15" height="15"><use href="#i-moon"/></svg></button>
       <button id="toggle-ingest" class="btn btn-ghost btn-icon desktop-only" aria-expanded="false" aria-controls="ingest-panel" title="Queue new track"><svg width="13" height="13"><use href="#i-plus"/></svg><span>Queue</span></button>
       <span id="auth-area" class="auth-area"></span>
       <button id="install-btn" class="btn btn-ghost" style="display:none">Install</button>
@@ -297,6 +301,6 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-  <script src="music.js?v=32" defer></script>
+  <script src="music.js?v=33" defer></script>
 </body>
 </html>

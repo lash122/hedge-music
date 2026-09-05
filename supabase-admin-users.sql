@@ -189,8 +189,33 @@ create or replace view public.v_admin_stats as
     (select count(*) from public.approved_users) as approved_total,
     (select coalesce(sum(file_size),0) from public.tracks) as storage_bytes;
 
+-- ------------------------------------------------------------
+-- 9. EVENTS PER USER (signature change → drop first, then recreate)
+-- p_user null = global feed (old callers unaffected)
+-- ------------------------------------------------------------
+drop function if exists public.get_admin_events(int);
+create or replace function public.get_admin_events(p_limit int default 30, p_user uuid default null)
+returns table (id uuid, track_id uuid, user_id uuid, email text, event text,
+               meta jsonb, created_at timestamptz, title text, artist text)
+language sql stable security definer set search_path = public as $$
+  select e.id, e.track_id, e.user_id, coalesce(e.meta->>'email', u.email),
+         e.event, e.meta, e.created_at, t.title, t.artist
+  from public.track_events e
+  left join auth.users u on u.id = e.user_id
+  left join public.tracks t on t.id = e.track_id
+  where public.is_admin()
+    and (p_user is null or e.user_id = p_user)
+  order by e.created_at desc
+  limit p_limit;
+$$;
+revoke all on function public.get_admin_events(int, uuid) from public;
+grant execute on function public.get_admin_events(int, uuid) to authenticated;
+
 -- leaderboard with owner (emails resolved client-side from get_all_users roster)
-create or replace view public.v_track_leaderboard as
+-- NOTE: plain CREATE (not OR REPLACE): owner_id is inserted mid-column-list,
+-- which Postgres rejects on replace (42P16). No DB objects depend on this view.
+drop view if exists public.v_track_leaderboard;
+create view public.v_track_leaderboard as
   select
     t.id, t.title, t.artist, t.extractor, t.storage_path, t.created_at, t.owner_id,
     count(*) filter (where e.event='play') as plays,

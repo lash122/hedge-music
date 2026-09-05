@@ -50,6 +50,7 @@
         </div>
       </div>
       <table class="table"><thead><tr><th>Email</th><th>Status</th><th>Tracks</th><th>Plays</th><th>Storage</th><th>Queue</th><th>Joined</th><th></th></tr></thead><tbody id="users-body"><tr><td colspan="8" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+      <div id="pg-users" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;min-height:30px"></div>
       <div id="user-detail" style="display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px"></div>
     </div>
     <div class="card" style="padding:14px;overflow:auto;margin-bottom:12px">
@@ -69,6 +70,7 @@
           </div>
         </div>
         <table class="table"><thead><tr><th></th><th>Track</th><th>Artist</th><th>Owner</th><th>Plays</th><th>Views</th><th>Queues</th><th></th></tr></thead><tbody id="leader-body"><tr><td colspan="8" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+        <div id="pg-tracks" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;min-height:30px"></div>
       </div>
       <div class="card" style="padding:14px;overflow:auto">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
@@ -76,11 +78,17 @@
           <button id="refresh-playlists" class="btn btn-ghost" style="padding:6px 10px">↺</button>
         </div>
         <table class="table"><thead><tr><th>Name</th><th>Owner</th><th>Songs</th><th>Created</th><th></th></tr></thead><tbody id="playlists-body"><tr><td colspan="5" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+        <div id="pg-playlists" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;min-height:30px"></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" id="two-col">
-        <div class="card" style="padding:14px;overflow:auto">
+        <div class="card" style="padding:14px;overflow:auto" id="ev-card">
           <h3 style="font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px">Recent events</h3>
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <select id="ev-user" aria-label="Filter by user" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:8px;font-size:12px;max-width:200px"><option value="">All users</option></select>
+            <select id="ev-type" aria-label="Filter by event type" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:8px;font-size:12px"><option value="all">All events</option><option value="play">play</option><option value="view">view</option><option value="queue">queue</option><option value="search">search</option><option value="playlist_add">playlist_add</option><option value="queue_error">queue_error</option></select>
+          </div>
           <table class="table"><thead><tr><th>When</th><th>Event</th><th>Track</th><th>User</th></tr></thead><tbody id="events-body"><tr><td colspan="4" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+          <div id="pg-events" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;min-height:30px"></div>
         </div>
         <div class="card" style="padding:14px;overflow:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
@@ -94,6 +102,7 @@
             </div>
           </div>
           <table class="table"><thead><tr><th>URL</th><th>Owner</th><th>Status</th><th>Error</th><th>When</th><th></th></tr></thead><tbody id="queue-body"><tr><td colspan="6" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+          <div id="pg-queue" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;min-height:30px"></div>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -104,6 +113,7 @@
           </div>
           <div id="storage-summary" style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">loading…</div>
           <table class="table"><thead><tr><th>Orphan file</th><th>Size</th><th>Created</th><th></th></tr></thead><tbody id="orphans-body"><tr><td colspan="4" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+          <div id="pg-orphans" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;min-height:30px"></div>
         </div>
         <div class="card" style="padding:14px;overflow:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
@@ -111,6 +121,7 @@
             <button id="refresh-trash" class="btn btn-ghost" style="padding:6px 10px">↺</button>
           </div>
           <table class="table"><thead><tr><th>Title</th><th>Deleted</th><th>File</th><th></th></tr></thead><tbody id="trash-body"><tr><td colspan="4" style="color:var(--text-tertiary)">loading…</td></tr></tbody></table>
+          <div id="pg-trash" style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;min-height:30px"></div>
         </div>
       </div>
       <div class="card" style="padding:14px">
@@ -227,6 +238,27 @@ async function checkAdmin(){
   return true;
 }
 
+// --- Shared pager: every admin list shows a page + "Show more" ---
+const pagers={};
+function pagerInit(key, step){ if(!pagers[key]) pagers[key]={shown:step, step}; }
+function pagerReset(key){ if(pagers[key]) pagers[key].shown=pagers[key].step; }
+function setPager(elId, key, total, scope){
+  const el=document.getElementById(elId); if(!el) return;
+  const p=pagers[key]||{shown:0, step:25};
+  const shown=Math.min(p.shown,total);
+  const scopeTxt=scope||'';
+  if(!total){ el.innerHTML=''; return; }
+  if(shown>=total){ el.innerHTML=`<small style="color:var(--text-tertiary)">Showing all ${total}${esc(scopeTxt)}</small>`; return; }
+  el.innerHTML=`<small style="color:var(--text-tertiary)">Showing ${shown} of ${total}${esc(scopeTxt)}</small><button class="btn btn-ghost" style="padding:4px 10px" data-more="${key}">Show more</button>`;
+}
+document.addEventListener('click', e=>{
+  const b=e.target.closest?.('[data-more]'); if(!b) return;
+  const k=b.dataset.more, p=pagers[k]; if(!p) return;
+  p.shown+=p.step;
+  ({users:renderUsers, tracks:renderLeader, queue:renderQueue, playlists:renderPlaylistsList, events:renderEvents, trash:renderTrashList, orphans:renderOrphans})[k]?.();
+});
+let eventRows=[], evError='', evRich=false, evTitleMap={}, evUser='', evType='all';
+
 async function loadStats(){
   const kpis=$('kpis');
   // v_admin_stats may not exist until sql run — handle gracefully
@@ -258,19 +290,35 @@ async function loadStats(){
 
   // leaderboard (with owner, edit, select + trash instead of hard delete)
   const lb=$('leader-body');
-  const { data: leader, error: e2 } = await sb.from('v_track_leaderboard').select('*').order('plays', {ascending:false}).limit(50);
+  const { data: leader, error: e2 } = await sb.from('v_track_leaderboard').select('*').order('plays', {ascending:false}).limit(200);
   let rows=leader;
   if(e2){
     // fallback aggregate client-side from events + tracks
     const { data: tracks } = await sb.from('tracks').select('id,title,artist,extractor,extractor_id,storage_path,owner_id,file_size,created_at').limit(200);
     const { data: evs } = await sb.from('track_events').select('track_id,event').in('event',['play','view','queue']).limit(5000);
     const map={}; (evs||[]).forEach(r=>{ map[r.track_id]=map[r.track_id]||{plays:0,views:0,queues:0}; if(r.event==='play') map[r.track_id].plays++; if(r.event==='view') map[r.track_id].views++; if(r.event==='queue') map[r.track_id].queues++; });
-    rows=(tracks||[]).map(t=>({...t, plays:map[t.id]?.plays||0, views:map[t.id]?.views||0, queues:map[t.id]?.queues||0})).sort((a,b)=>b.plays-a.plays).slice(0,50);
+    rows=(tracks||[]).map(t=>({...t, plays:map[t.id]?.plays||0, views:map[t.id]?.views||0, queues:map[t.id]?.queues||0})).sort((a,b)=>b.plays-a.plays).slice(0,200);
   }
   leaderRows = rows||[];
   selectedTracks = new Set([...selectedTracks].filter(id=>leaderRows.some(r=>r.id===id)));
   updateBulkBar();
-  if(!rows || !rows.length) lb.innerHTML=`<tr><td colspan="8" style="color:var(--text-tertiary)">No data yet — play a track to generate events.</td></tr>`;
+  renderLeader();
+  await loadPending();
+  await loadUsers();
+  await loadEvents();
+  await loadQueue();
+  await loadPlaylistsAdmin();
+  await loadStorage();
+  await loadTrash();
+  await loadHeartbeat();
+}
+
+function renderLeader(){
+  const lb=$('leader-body'); if(!lb) return;
+  pagerInit('tracks', 25);
+  const total=leaderRows.length;
+  const rows=leaderRows.slice(0, pagers.tracks.shown);
+  if(!total) lb.innerHTML=`<tr><td colspan="8" style="color:var(--text-tertiary)">No data yet — play a track to generate events.</td></tr>`;
   else lb.innerHTML=rows.map(r=>{
     const owner = r.owner_id && rosterById[r.owner_id] ? rosterById[r.owner_id].email : (r.owner_id ? r.owner_id.slice(0,8) : '—');
     const checked = selectedTracks.has(r.id) ? 'checked' : '';
@@ -300,52 +348,68 @@ async function loadStats(){
       }
     });
   });
+  setPager('pg-tracks', 'tracks', leaderRows.length);
+}
 
-  // recent events — prefer admin RPC (emails via definer), fall back to view, then raw
-  const evBody=$('events-body');
-  let evs2=null, e3=null;
-  let useView=false;
-  {
-    const r0=await sb.rpc('get_admin_events', { p_limit: 30 }).then(r=>r, ()=>null);
-    if(r0 && !r0.error && r0.data){ evs2=r0.data; useView=true; }
-    else {
-      const r=await sb.from('v_admin_events').select('created_at,event,track_id,email,title').order('created_at',{ascending:false}).limit(30);
-      if(!r.error){ evs2=r.data; useView=true; }
-      else {
-        const r2=await sb.from('track_events').select('created_at,event,track_id,user_id,meta').order('created_at',{ascending:false}).limit(30);
-        evs2=r2.data; e3=r2.error;
-      }
-    }
+function renderEvents(){
+  const evBody=$('events-body'); if(!evBody) return;
+  pagerInit('events', 15);
+  const typeF=evType==='all' ? null : evType;
+  const list=(eventRows||[]).filter(e=>!typeF || e.event===typeF);
+  const total=list.length;
+  const rows=list.slice(0, pagers.events.shown);
+  if(evError) evBody.innerHTML=`<tr><td colspan="4" style="color:var(--danger)">${esc(evError)}</td></tr>`;
+  else if(!total) evBody.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">No events yet${evUser?' for this user':''}${typeF?' of this type':''}</td></tr>`;
+  else if(evRich){
+    evBody.innerHTML=rows.map(e=>{
+      const title=e.title || (e.track_id? e.track_id.slice(0,8) : (e.meta?.q||e.meta?.url||'—'));
+      return `<tr><td>${fmtDate(e.created_at)}</td><td><span class="badge">${esc(e.event)}</span></td><td title="${esc(title)}">${esc(String(title).slice(0,32))}</td><td title="${esc(e.email||'anon')}">${esc((e.email||'anon').slice(0,28))}</td></tr>`;
+    }).join('');
+  } else {
+    evBody.innerHTML=rows.map(e=>{
+      const title=e.track_id ? (evTitleMap[e.track_id]|| e.track_id.slice(0,8)) : (e.meta?.q|| e.meta?.url||'—');
+      const email=e.meta?.email || evEmailOf(e.user_id);
+      return `<tr><td>${fmtDate(e.created_at)}</td><td><span class="badge">${esc(e.event)}</span></td><td title="${esc(title)}">${esc(String(title).slice(0,32))}</td><td title="${esc(email)}">${esc(String(email).slice(0,28))}</td></tr>`;
+    }).join('');
   }
-  if(e3) evBody.innerHTML=`<tr><td colspan="4" style="color:var(--danger)">${esc(e3.message)} — run supabase-admin-analytics.sql</td></tr>`;
-  else if(!evs2?.length) evBody.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">No events yet</td></tr>`;
-  else {
-    if(useView){
-      evBody.innerHTML=evs2.map(e=>{
-        const when=new Date(e.created_at).toLocaleString();
-        const title=e.title || (e.track_id? e.track_id.slice(0,8) : '—');
-        return `<tr><td>${esc(when)}</td><td><span class="badge">${esc(e.event)}</span></td><td title="${esc(title)}">${esc(String(title).slice(0,32))}</td><td title="${esc(e.email||'anon')}">${esc((e.email||'anon').slice(0,28))}</td></tr>`;
-      }).join('');
-    } else {
-      const ids=[...new Set(evs2.map(e=>e.track_id).filter(Boolean))].slice(0,30);
-      let titleMap={};
-      if(ids.length){ const {data:ts}=await sb.from('tracks').select('id,title').in('id', ids); (ts||[]).forEach(t=>titleMap[t.id]=t.title); }
-      evBody.innerHTML=evs2.map(e=>{
-        const when=new Date(e.created_at).toLocaleString();
-        const title=e.track_id ? (titleMap[e.track_id]|| e.track_id.slice(0,8)) : (e.meta?.q|| e.meta?.url||'—');
-        const email=e.meta?.email || (e.user_id||'anon').slice(0,8);
-        return `<tr><td>${esc(when)}</td><td><span class="badge">${esc(e.event)}</span></td><td title="${esc(title)}">${esc(String(title).slice(0,32))}</td><td title="${esc(email)}">${esc(String(email).slice(0,28))}</td></tr>`;
-      }).join('');
-    }
+  const scope = evUser && rosterById[evUser] ? ` · ${rosterById[evUser].email}` : '';
+  setPager('pg-events', 'events', total, scope);
+}
+async function loadEvents(){
+  evError=''; evRich=false; evTitleMap={};
+  // 2-arg RPC (supabase-admin-users.sql) → 1-arg (setup.sql) → raw admin select
+  try{
+    const r=await sb.rpc('get_admin_events', {p_limit:200, p_user: evUser||null});
+    if(r.error) throw r.error;
+    eventRows=r.data||[]; evRich=true; renderEvents(); return;
+  }catch(e1){
+    try{
+      const r=await sb.rpc('get_admin_events', {p_limit:200});
+      if(r.error) throw r.error;
+      eventRows=(r.data||[]).filter(e=>!evUser || e.user_id===evUser); evRich=true; renderEvents(); return;
+    }catch(e2){ /* fall through to raw */ }
   }
-
-  await loadPending();
-  await loadUsers();
-  await loadQueue();
-  await loadPlaylistsAdmin();
-  await loadStorage();
-  await loadTrash();
-  await loadHeartbeat();
+  try{
+    let q=sb.from('track_events').select('created_at,event,track_id,user_id,meta').order('created_at',{ascending:false}).limit(200);
+    if(evUser) q=q.eq('user_id', evUser);
+    const r=await q;
+    if(r.error) throw r.error;
+    eventRows=r.data||[]; evRich=false;
+    const ids=[...new Set(eventRows.map(e=>e.track_id).filter(Boolean))].slice(0,100);
+    if(ids.length){ const {data:ts}=await sb.from('tracks').select('id,title').in('id', ids); (ts||[]).forEach(t=>evTitleMap[t.id]=t.title); }
+    renderEvents();
+  }catch(e){ evError=e.message+' — run supabase-setup.sql'; renderEvents(); }
+}
+function evEmailOf(uid){
+  if(!uid) return 'anon';
+  if(rosterById[uid]) return rosterById[uid].email||'anon';
+  return String(uid).slice(0,8);
+}
+function filterEventsToUser(uid){
+  evUser=uid||'';
+  const sel=$('ev-user'); if(sel) sel.value=evUser;
+  pagerReset('events'); loadEvents();
+  document.querySelector('#ev-card')?.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 function fmtBytes(b){
@@ -448,10 +512,18 @@ async function loadUsers(){
     if(error) throw error;
     roster=data||[];
     rosterById={}; roster.forEach(u=>{ rosterById[u.id]=u; });
+    syncEvUserOptions();
     renderUsers();
   }catch(e){
     body.innerHTML=`<tr><td colspan="8" style="color:var(--danger)">${esc(e.message)} — run supabase-admin-users.sql</td></tr>`;
   }
+}
+function syncEvUserOptions(){
+  const sel=$('ev-user'); if(!sel) return;
+  const keep=sel.value;
+  sel.innerHTML='<option value="">All users</option>'+roster.map(u=>`<option value="${esc(u.id)}">${esc(u.email||u.id.slice(0,8))}</option>`).join('');
+  sel.value=[...sel.options].some(o=>o.value===keep) ? keep : '';
+  if(evUser && ![...sel.options].some(o=>o.value===evUser)){ evUser=''; }
 }
 function userStatus(u){
   if(u.is_admin) return '<span class="badge" style="color:var(--accent);border-color:var(--accent-line)">admin</span>';
@@ -461,8 +533,11 @@ function userStatus(u){
 function renderUsers(){
   const body=$('users-body'); if(!body) return;
   const q=(($('user-search')?.value)||'').toLowerCase();
-  const list=roster.filter(u=>!q || (u.email||'').toLowerCase().includes(q));
-  if(!list.length){ body.innerHTML=`<tr><td colspan="8" style="color:var(--text-tertiary)">${roster.length?'No users match':'No users yet'}</td></tr>`; return; }
+  const all=roster.filter(u=>!q || (u.email||'').toLowerCase().includes(q));
+  pagerInit('users', 25);
+  const total=all.length;
+  const list=all.slice(0, pagers.users.shown);
+  if(!total){ body.innerHTML=`<tr><td colspan="8" style="color:var(--text-tertiary)">${roster.length?'No users match':'No users yet'}</td></tr>`; setPager('pg-users','users',0); return; }
   body.innerHTML=list.map(u=>{
     const qp = Number(u.q_pending||0)+0, qe = Number(u.q_errors||0);
     const qcell = (qp||qe) ? `${qp} pend · ${qe} err` : '—';
@@ -487,6 +562,7 @@ function renderUsers(){
     </tr>`;
   }).join('');
   bindUserActions(body);
+  setPager('pg-users','users',total);
 }
 function bindUserActions(root){
   root.querySelectorAll('[data-approve2]').forEach(b=> b.addEventListener('click', async()=>{
@@ -512,8 +588,9 @@ async function inspectUser(uid){
   const u=rosterById[uid]; if(!u) return;
   const box=$('user-detail'); if(!box) return;
   box.style.display='block';
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><strong style="font-size:13px">${esc(u.email||uid)}</strong><button id="ud-close" class="btn btn-ghost" style="padding:4px 10px">Close</button></div><div style="color:var(--text-tertiary);font-size:12.5px">loading…</div>`;
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><strong style="font-size:13px">${esc(u.email||uid)}</strong><span><button id="ud-all" class="btn btn-ghost" style="padding:4px 10px">All activity →</button> <button id="ud-close" class="btn btn-ghost" style="padding:4px 10px">Close</button></span></div><div style="color:var(--text-tertiary);font-size:12.5px">loading…</div>`;
   $('ud-close')?.addEventListener('click', ()=>{ box.style.display='none'; box.innerHTML=''; });
+  $('ud-all')?.addEventListener('click', ()=> filterEventsToUser(uid));
   try{
     const [tr, q, ev] = await Promise.all([
       sb.from('tracks').select('id,title,artist,created_at').eq('owner_id', uid).order('created_at',{ascending:false}).limit(30),
@@ -525,7 +602,7 @@ async function inspectUser(uid){
     const tids=[...new Set([...tracks.map(t=>t.id), ...events.map(e=>e.track_id)].filter(Boolean))].slice(0,60);
     if(tids.length){ const {data:ts}=await sb.from('tracks').select('id,title').in('id', tids); (ts||[]).forEach(t=>titleMap[t.id]=t.title); }
     const row=(l,v)=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px"><span style="color:var(--text-secondary)">${l}</span><strong>${v}</strong></div>`;
-    box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><strong style="font-size:13px">${esc(u.email||uid)}</strong><button id="ud-close" class="btn btn-ghost" style="padding:4px 10px">Close</button></div>
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><strong style="font-size:13px">${esc(u.email||uid)}</strong><span><button id="ud-all" class="btn btn-ghost" style="padding:4px 10px">All activity →</button> <button id="ud-close" class="btn btn-ghost" style="padding:4px 10px">Close</button></span></div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">
         <div>${row('Tracks', tracks.length)}${row('Queue items', queue.length)}${row('Recent events', events.length)}${row('Storage', fmtBytes(u.bytes))}</div>
         <div><h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:4px">Latest tracks</h4>${tracks.slice(0,8).map(t=>`<div style="font-size:12.5px;padding:3px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(t.title||'')}">${esc((t.title||'—').slice(0,36))}</div>`).join('')||'<small style="color:var(--text-tertiary)">none</small>'}</div>
@@ -533,6 +610,7 @@ async function inspectUser(uid){
         <div><h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-tertiary);margin-bottom:4px">Recent activity</h4>${events.slice(0,8).map(e=>`<div style="font-size:12.5px;padding:3px 0"><span class="badge">${esc(e.event)}</span> ${esc((titleMap[e.track_id]||e.track_id||'').slice(0,26))}</div>`).join('')||'<small style="color:var(--text-tertiary)">none</small>'}</div>
       </div>`;
     $('ud-close')?.addEventListener('click', ()=>{ box.style.display='none'; box.innerHTML=''; });
+    $('ud-all')?.addEventListener('click', ()=> filterEventsToUser(uid));
   }catch(e){ box.innerHTML=`<div style="color:var(--danger);font-size:12.5px">${esc(e.message)}</div>`; }
 }
 async function purgeUser(uid, email){
@@ -555,7 +633,7 @@ async function purgeUser(uid, email){
 async function loadQueue(){
   const body=$('queue-body'); if(!body) return;
   try{
-    const { data, error } = await sb.from('ingest_queue').select('id,original_url,owner_id,status,error,attempts,created_at').order('created_at',{ascending:false}).limit(60);
+    const { data, error } = await sb.from('ingest_queue').select('id,original_url,owner_id,status,error,attempts,created_at').order('created_at',{ascending:false}).limit(200);
     if(error) throw error;
     queueRows=data||[];
     renderQueue();
@@ -563,9 +641,12 @@ async function loadQueue(){
 }
 function renderQueue(){
   const body=$('queue-body'); if(!body) return;
-  const list=queueRows.filter(r=>queueFilter==='all' || r.status===queueFilter || (queueFilter==='processing' && r.status==='processing'));
+  const all=queueRows.filter(r=>queueFilter==='all' || r.status===queueFilter || (queueFilter==='processing' && r.status==='processing'));
+  pagerInit('queue', 25);
+  const total=all.length;
+  const list=all.slice(0, pagers.queue.shown);
   document.querySelectorAll('#queue-filters .qf').forEach(b=> b.classList.toggle('btn-main', b.dataset.qf===queueFilter));
-  if(!list.length){ body.innerHTML=`<tr><td colspan="6" style="color:var(--text-tertiary)">No ${queueFilter==='all'?'':queueFilter+' '}queue rows</td></tr>`; return; }
+  if(!total){ body.innerHTML=`<tr><td colspan="6" style="color:var(--text-tertiary)">No ${queueFilter==='all'?'':queueFilter+' '}queue rows</td></tr>`; setPager('pg-queue','queue',0); return; }
   body.innerHTML=list.map(r=>{
     const owner=r.owner_id && rosterById[r.owner_id] ? rosterById[r.owner_id].email : (r.owner_id? r.owner_id.slice(0,8) : '—');
     const st=r.status==='error'?`<span class="badge-err">error${r.attempts?` ×${r.attempts}`:''}</span>`:`<span class="badge">${esc(r.status)}</span>`;
@@ -582,6 +663,7 @@ function renderQueue(){
     if(!confirm('Cancel this queued URL?')) return;
     b.disabled=true; try{ const {error}=await sb.from('ingest_queue').delete().eq('id', b.dataset.cancel); if(error) throw error; toast('Cancelled'); await loadQueue(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
   }));
+  setPager('pg-queue','queue',total,queueFilter==='all'?'':' · '+queueFilter);
 }
 
 // --- Worker heartbeat ---
@@ -604,29 +686,39 @@ async function loadHeartbeat(){
 }
 
 // --- Playlists (admin read + delete) ---
+let playlistRows=[], playlistCounts={};
 async function loadPlaylistsAdmin(){
   const body=$('playlists-body'); if(!body) return;
   try{
     const [pls, pts] = await Promise.all([
-      sb.from('playlists').select('id,name,owner_id,created_at').order('created_at',{ascending:false}).limit(100),
+      sb.from('playlists').select('id,name,owner_id,created_at').order('created_at',{ascending:false}).limit(200),
       sb.from('playlist_tracks').select('playlist_id')
     ]);
     if(pls.error) throw pls.error;
-    const counts={}; (pts.data||[]).forEach(r=>{ counts[r.playlist_id]=(counts[r.playlist_id]||0)+1; });
-    const list=pls.data||[];
-    if(!list.length){ body.innerHTML=`<tr><td colspan="5" style="color:var(--text-tertiary)">No playlists</td></tr>`; return; }
-    body.innerHTML=list.map(p=>{
-      const owner=p.owner_id && rosterById[p.owner_id] ? rosterById[p.owner_id].email : (p.owner_id? p.owner_id.slice(0,8):'—');
-      return `<tr><td>${esc(p.name)}</td><td title="${esc(owner)}">${esc(String(owner).slice(0,24))}</td><td>${counts[p.id]||0}</td><td>${fmtDate(p.created_at)}</td><td><button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-delpl="${esc(p.id)}" data-name="${esc((p.name||'').replace(/"/g,'&quot;'))}">Delete</button></td></tr>`;
-    }).join('');
-    body.querySelectorAll('[data-delpl]').forEach(b=> b.addEventListener('click', async()=>{
-      if(!confirm(`Delete playlist "${b.dataset.name||'?'}"? Songs stay in the library.`)) return;
-      b.disabled=true; try{ const {error}=await sb.from('playlists').delete().eq('id', b.dataset.delpl); if(error) throw error; toast('Playlist deleted'); await loadPlaylistsAdmin(); await loadStats(); }catch(e){ toast.error('Delete failed (run supabase-admin-users.sql for the admin policy): '+e.message); } b.disabled=false;
-    }));
-  }catch(e){ body.innerHTML=`<tr><td colspan="5" style="color:var(--danger)">${esc(e.message)}</td></tr>`; }
+    playlistCounts={}; (pts.data||[]).forEach(r=>{ playlistCounts[r.playlist_id]=(playlistCounts[r.playlist_id]||0)+1; });
+    playlistRows=pls.data||[];
+    renderPlaylistsList();
+  }catch(e){ body.innerHTML=`<tr><td colspan="5" style="color:var(--danger)">${esc(e.message)}</td></tr>`; setPager('pg-playlists','playlists',0); }
+}
+function renderPlaylistsList(){
+  const body=$('playlists-body'); if(!body) return;
+  pagerInit('playlists', 25);
+  const total=playlistRows.length;
+  const list=playlistRows.slice(0, pagers.playlists.shown);
+  if(!total){ body.innerHTML=`<tr><td colspan="5" style="color:var(--text-tertiary)">No playlists</td></tr>`; setPager('pg-playlists','playlists',0); return; }
+  body.innerHTML=list.map(p=>{
+    const owner=p.owner_id && rosterById[p.owner_id] ? rosterById[p.owner_id].email : (p.owner_id? p.owner_id.slice(0,8):'—');
+    return `<tr><td>${esc(p.name)}</td><td title="${esc(owner)}">${esc(String(owner).slice(0,24))}</td><td>${playlistCounts[p.id]||0}</td><td>${fmtDate(p.created_at)}</td><td><button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-delpl="${esc(p.id)}" data-name="${esc((p.name||'').replace(/"/g,'&quot;'))}">Delete</button></td></tr>`;
+  }).join('');
+  body.querySelectorAll('[data-delpl]').forEach(b=> b.addEventListener('click', async()=>{
+    if(!confirm(`Delete playlist "${b.dataset.name||'?'}"? Songs stay in the library.`)) return;
+    b.disabled=true; try{ const {error}=await sb.from('playlists').delete().eq('id', b.dataset.delpl); if(error) throw error; toast('Playlist deleted'); await loadPlaylistsAdmin(); await loadStats(); }catch(e){ toast.error('Delete failed (run supabase-admin-users.sql for the admin policy): '+e.message); } b.disabled=false;
+  }));
+  setPager('pg-playlists','playlists',total);
 }
 
 // --- Storage: measured usage + orphans ---
+let orphanRows=[];
 async function loadStorage(){
   const sum=$('storage-summary'), body=$('orphans-body');
   try{
@@ -637,39 +729,56 @@ async function loadStorage(){
   try{
     const { data, error } = await sb.rpc('get_orphan_files');
     if(error) throw error;
-    const rows=data||[];
-    if(!rows.length){ body.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">No orphan files — bucket matches the library</td></tr>`; return; }
-    body.innerHTML=rows.map(f=>`<tr><td title="${esc(f.name)}">${esc(f.name.slice(0,40))}</td><td>${fmtBytes(f.bytes)}</td><td>${fmtDate(f.created)}</td><td><button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-orphan="${esc(f.name)}">Delete</button></td></tr>`).join('');
-    body.querySelectorAll('[data-orphan]').forEach(b=> b.addEventListener('click', async()=>{
-      if(!confirm(`Delete orphan file?\n${b.dataset.orphan}\nNo track references it.`)) return;
-      b.disabled=true; try{ const {error}=await sb.storage.from('tracks').remove([b.dataset.orphan]); if(error) throw error; toast('Orphan deleted'); await loadStorage(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
-    }));
-  }catch(e){ body.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">${esc(e.message)} — run supabase-admin-users.sql</td></tr>`; }
+    orphanRows=data||[];
+    renderOrphans();
+  }catch(e){ body.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">${esc(e.message)} — run supabase-admin-users.sql</td></tr>`; setPager('pg-orphans','orphans',0); }
+}
+function renderOrphans(){
+  const body=$('orphans-body'); if(!body) return;
+  pagerInit('orphans', 25);
+  const total=orphanRows.length;
+  const rows=orphanRows.slice(0, pagers.orphans.shown);
+  if(!total){ body.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">No orphan files — bucket matches the library</td></tr>`; setPager('pg-orphans','orphans',0); return; }
+  body.innerHTML=rows.map(f=>`<tr><td title="${esc(f.name)}">${esc(f.name.slice(0,40))}</td><td>${fmtBytes(f.bytes)}</td><td>${fmtDate(f.created)}</td><td><button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-orphan="${esc(f.name)}">Delete</button></td></tr>`).join('');
+  body.querySelectorAll('[data-orphan]').forEach(b=> b.addEventListener('click', async()=>{
+    if(!confirm(`Delete orphan file?\n${b.dataset.orphan}\nNo track references it.`)) return;
+    b.disabled=true; try{ const {error}=await sb.storage.from('tracks').remove([b.dataset.orphan]); if(error) throw error; toast('Orphan deleted'); await loadStorage(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
+  }));
+  setPager('pg-orphans','orphans',total);
 }
 
 // --- Trash: restore or purge files ---
+let trashRows=[];
 async function loadTrash(){
   const body=$('trash-body'); if(!body) return;
   try{
-    const { data, error } = await sb.from('deleted_tracks').select('*').order('deleted_at',{ascending:false}).limit(50);
+    const { data, error } = await sb.from('deleted_tracks').select('*').order('deleted_at',{ascending:false}).limit(200);
     if(error) throw error;
-    const rows=data||[];
-    if(!rows.length){ body.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">Trash is empty</td></tr>`; return; }
-    body.innerHTML=rows.map(r=>{
-      const canRestore = !r.file_deleted && !!r.original_url;
-      return `<tr><td title="${esc(r.title||'')}">${esc((r.title||'—').slice(0,34))}</td><td>${fmtDate(r.deleted_at)}</td><td>${r.file_deleted?'<span class="badge-err">purged</span>':'<span class="badge">kept</span>'}</td><td style="white-space:nowrap">
-        ${canRestore?`<button class="btn btn-ghost" style="padding:4px 8px" data-restore="${esc(r.deleted_at)}" data-rid="${esc(r.id)}">Restore</button>`:''}
-        ${(!r.file_deleted && r.storage_path)?`<button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-purgefile="${esc(r.deleted_at)}" data-rid="${esc(r.id)}" data-path="${esc(r.storage_path)}">Delete file</button>`:''}
-      </td></tr>`;
-    }).join('');
-    body.querySelectorAll('[data-restore]').forEach(b=> b.addEventListener('click', async()=>{
-      b.disabled=true; try{ await restoreTrash(b.dataset.restore, b.dataset.rid); toast('Restored to library'); await loadTrash(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
-    }));
-    body.querySelectorAll('[data-purgefile]').forEach(b=> b.addEventListener('click', async()=>{
-      if(!confirm('Permanently delete the MP3? The trash entry stays as audit, but restore becomes impossible.')) return;
-      b.disabled=true; try{ await purgeTrashFile(b.dataset.purgefile, b.dataset.rid, b.dataset.path); toast('File purged'); await loadTrash(); await loadStorage(); }catch(e){ toast.error(e.message); } b.disabled=false;
-    }));
-  }catch(e){ body.innerHTML=`<tr><td colspan="4" style="color:var(--danger)">${esc(e.message)}</td></tr>`; }
+    trashRows=data||[];
+    renderTrashList();
+  }catch(e){ body.innerHTML=`<tr><td colspan="4" style="color:var(--danger)">${esc(e.message)}</td></tr>`; setPager('pg-trash','trash',0); }
+}
+function renderTrashList(){
+  const body=$('trash-body'); if(!body) return;
+  pagerInit('trash', 25);
+  const total=trashRows.length;
+  const rows=trashRows.slice(0, pagers.trash.shown);
+  if(!total){ body.innerHTML=`<tr><td colspan="4" style="color:var(--text-tertiary)">Trash is empty</td></tr>`; setPager('pg-trash','trash',0); return; }
+  body.innerHTML=rows.map(r=>{
+    const canRestore = !r.file_deleted && !!r.original_url;
+    return `<tr><td title="${esc(r.title||'')}">${esc((r.title||'—').slice(0,34))}</td><td>${fmtDate(r.deleted_at)}</td><td>${r.file_deleted?'<span class="badge-err">purged</span>':'<span class="badge">kept</span>'}</td><td style="white-space:nowrap">
+      ${canRestore?`<button class="btn btn-ghost" style="padding:4px 8px" data-restore="${esc(r.deleted_at)}" data-rid="${esc(r.id)}">Restore</button>`:''}
+      ${(!r.file_deleted && r.storage_path)?`<button class="btn btn-ghost" style="padding:4px 8px;color:#e8a0a0" data-purgefile="${esc(r.deleted_at)}" data-rid="${esc(r.id)}" data-path="${esc(r.storage_path)}">Delete file</button>`:''}
+    </td></tr>`;
+  }).join('');
+  body.querySelectorAll('[data-restore]').forEach(b=> b.addEventListener('click', async()=>{
+    b.disabled=true; try{ await restoreTrash(b.dataset.restore, b.dataset.rid); toast('Restored to library'); await loadTrash(); await loadStats(); }catch(e){ toast.error(e.message); } b.disabled=false;
+  }));
+  body.querySelectorAll('[data-purgefile]').forEach(b=> b.addEventListener('click', async()=>{
+    if(!confirm('Permanently delete the MP3? The trash entry stays as audit, but restore becomes impossible.')) return;
+    b.disabled=true; try{ await purgeTrashFile(b.dataset.purgefile, b.dataset.rid, b.dataset.path); toast('File purged'); await loadTrash(); await loadStorage(); }catch(e){ toast.error(e.message); } b.disabled=false;
+  }));
+  setPager('pg-trash','trash',total);
 }
 
 // --- Edit track metadata ---
@@ -710,12 +819,14 @@ $('refresh-pending')?.addEventListener('click', async()=>{
   try{ await loadPending(); } finally { if(b) b.textContent='↺'; }
 });
 $('refresh-users')?.addEventListener('click', loadUsers);
-$('user-search')?.addEventListener('input', renderUsers);
+$('user-search')?.addEventListener('input', ()=>{ pagerReset('users'); renderUsers(); });
+$('ev-user')?.addEventListener('change', e=>{ filterEventsToUser(e.target.value); });
+$('ev-type')?.addEventListener('change', e=>{ evType=e.target.value||'all'; pagerReset('events'); renderEvents(); });
 $('refresh-playlists')?.addEventListener('click', loadPlaylistsAdmin);
 $('refresh-storage')?.addEventListener('click', loadStorage);
 $('refresh-trash')?.addEventListener('click', loadTrash);
 document.querySelectorAll('#queue-filters .qf').forEach(b=> b.addEventListener('click', ()=>{
-  queueFilter=b.dataset.qf; renderQueue();
+  queueFilter=b.dataset.qf; pagerReset('queue'); renderQueue();
 }));
 $('bulk-del-btn')?.addEventListener('click', async()=>{
   if(!selectedTracks.size) return;

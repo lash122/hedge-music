@@ -1,60 +1,60 @@
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   color-scheme:light;
-  --bg:#f7edf3;
-  --surface:#fffafd;
-  --surface-hover:#f7e3ec;
-  --surface-active:#f0d5e2;
-  --border:#ecd7e2;
-  --border-strong:#dfbccd;
-  --text:#2b1b25;
-  --text-secondary:#7c5d6d;
-  --text-tertiary:#ab8fa0;
-  --accent:#e75d90;
-  --accent-strong:#d14a7d;
+  --bg:#f9e3ed;
+  --surface:#fff6fa;
+  --surface-hover:#f9e2ec;
+  --surface-active:#f3d2e1;
+  --border:#f0d2e0;
+  --border-strong:#e3aec6;
+  --text:#301a26;
+  --text-secondary:#8a5f74;
+  --text-tertiary:#bd93a9;
+  --accent:#f0509a;
+  --accent-strong:#d63d85;
   --accent-ink:#ffffff;
-  --accent-text:#b9376e;
-  --accent-rgb:231,93,144;
-  --accent-dim:rgba(231,93,144,.13);
-  --accent-dim-strong:rgba(231,93,144,.19);
-  --accent-line:rgba(231,93,144,.4);
+  --accent-text:#bd2f73;
+  --accent-rgb:240,80,154;
+  --accent-dim:rgba(240,80,154,.14);
+  --accent-dim-strong:rgba(240,80,154,.2);
+  --accent-line:rgba(240,80,154,.42);
   --success:#2e7d4f;
   --danger:#c43434;
   --danger-bg:#fdecec;
   --danger-border:#f0c0c0;
   --danger-bg-hover:#f8dcdc;
-  --hover:rgba(150,60,100,.05);
-  --hover-strong:rgba(150,60,100,.1);
-  --disc:rgba(150,60,100,.07);
-  --disc-border:rgba(150,60,100,.09);
-  --ghost:rgba(255,255,255,.6);
-  --ghost-hover:#f8e2ec;
-  --tile:#eed9e4;
-  --tile-ring:rgba(150,60,100,.08);
-  --range-track:#e4c7d5;
-  --track-rest:rgba(150,60,100,.18);
-  --handle:#d5abc0;
-  --bar:rgba(255,250,252,.86);
-  --sheet:#f5e6ee;
-  --modal-bg:#fffafd;
-  --menu-bg:#fffafd;
+  --hover:rgba(170,50,100,.055);
+  --hover-strong:rgba(170,50,100,.11);
+  --disc:rgba(170,50,100,.07);
+  --disc-border:rgba(170,50,100,.09);
+  --ghost:rgba(255,255,255,.65);
+  --ghost-hover:#fbe3ee;
+  --tile:#f5d3e2;
+  --tile-ring:rgba(170,50,100,.09);
+  --range-track:#e8bcd1;
+  --track-rest:rgba(170,50,100,.2);
+  --handle:#d99cbb;
+  --bar:rgba(255,246,250,.87);
+  --sheet:#f8dcea;
+  --modal-bg:#fff6fa;
+  --menu-bg:#fff6fa;
   --toast-bg:#ffffff;
-  --toast-fg:#1e1a24;
+  --toast-fg:#301a26;
   --toast-err-bg:#fdecec;
   --toast-err-fg:#a02a2a;
-  --overlay:rgba(80,30,55,.4);
-  --ring-soft:rgba(231,93,144,.25);
+  --overlay:rgba(90,25,60,.42);
+  --ring-soft:rgba(240,80,154,.28);
   --playbtn-bg:var(--accent);
   --playbtn-fg:#ffffff;
   --playbtn-border:var(--accent);
   --play-solid:var(--accent);
   --play-solid-hover:var(--accent-strong);
   --play-solid-ink:#ffffff;
-  --play-glow:rgba(231,93,144,.4);
-  --icon-fg:#5e4352;
+  --play-glow:rgba(240,80,154,.45);
+  --icon-fg:#6b4457;
   --ambient-filter:blur(72px) saturate(1.6) brightness(.92);
   --ambient-op:.3;
-  --offline-dot:#d5abc0;
+  --offline-dot:#d99cbb;
   --radius-sm:9px;
   --radius-md:11px;
   --radius-lg:16px;
@@ -62,9 +62,9 @@
   --radius:9px;
   --ease:cubic-bezier(.32,.72,0,1);
   --ease-quick:cubic-bezier(.2,.8,.2,1);
-  --shadow-card:0 1px 2px rgba(150,70,110,.07),0 10px 28px rgba(150,70,110,.1);
-  --shadow-pop:0 16px 48px rgba(150,70,110,.2),0 2px 8px rgba(150,70,110,.09);
-  --shadow-fab:0 10px 26px rgba(150,70,110,.24),0 2px 6px rgba(150,70,110,.13);
+  --shadow-card:0 1px 2px rgba(170,60,110,.07),0 10px 28px rgba(170,60,110,.11);
+  --shadow-pop:0 16px 48px rgba(170,60,110,.2),0 2px 8px rgba(170,60,110,.1);
+  --shadow-fab:0 10px 26px rgba(170,60,110,.26),0 2px 6px rgba(170,60,110,.14);
   --player-h:72px;
   --tabs-h:0px;
 }
@@ -652,12 +652,14 @@ button.playing .i-pause-icon{display:inline}
     position:fixed;right:16px;
     bottom:calc(var(--player-h) + var(--tabs-h) + 16px + env(safe-area-inset-bottom));
     width:56px;height:56px;border-radius:50%;
-    background:var(--accent);color:var(--accent-ink);border:none;
+    background:linear-gradient(135deg,#f472a8,var(--accent) 60%,var(--accent-strong));color:#fff;border:none;
     box-shadow:var(--shadow-fab),0 0 0 1px rgba(var(--accent-rgb),.35);
     cursor:pointer;z-index:31;
-    transition:transform .12s var(--ease-quick),background .15s;
+    transition:transform .12s var(--ease-quick),filter .15s;
   }
-  .fab:hover{background:var(--accent-strong)}
+  .fab:hover{filter:brightness(1.06)}
+  :root[data-theme="dark"] .fab{background:var(--accent);color:var(--accent-ink)}
+  :root[data-theme="dark"] .fab:hover{background:var(--accent-strong);filter:none}
   .fab:active{transform:scale(.93)}
   .fab svg{width:22px;height:22px}
   .fab-dot{
